@@ -6,7 +6,7 @@ maxGrading = (f, dom, codom) -> (
     -- set up elimination ideal
     elimRing := dom ** codom;
     X := vars dom;
-    elimIdeal := ideal(sub(X,elimRing) - sub(f(X),elimRing));
+    elimIdeal := ideal(sub(X, elimRing) - sub(f(X), elimRing));
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
 )
 
