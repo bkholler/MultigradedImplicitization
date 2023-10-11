@@ -48,13 +48,15 @@ componentOfIdeal = (deg, f, dom, codom) -> (
 
 
 
--- ez-pz example
+-- ezpz example
 R = QQ[x,y,z]
 S = QQ[s,t]
-f = map(S,R,{t^8*(1-t)^(10)*s^(15), t^5*(1-t)^7*s^(10), t^3*(1-t)^4*s^6})
+f = map(S,R,{t^8*(1-t)^(10)*s^(15), t^5*(1-t)^7*s^(10), t^3*(1-t)^4*s^6});
 
 
-componentOfIdeal({30}, f, R, S)
+timing componentOfIdeal({30}, f, R, S)
+
+timing ker f
 
 
 
