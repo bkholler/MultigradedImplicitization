@@ -1,11 +1,12 @@
 needsPackage "gfanInterface";
 
--- f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
+-- Input : f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
+-- Output : lineality space of Groebner fan
 maxGrading = (f, dom, codom) -> (
     -- set up elimination ideal
     elimRing := dom ** codom;
-    elimIdeal := ideal(apply(flatten entries vars dom, x -> sub(x,elimRing) - sub(f(x),elimRing)));
-    -- return lineality space of the Groebner fan
+    X := vars dom;
+    elimIdeal := ideal(sub(X,elimRing) - sub(f(X),elimRing));
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
 )
 
