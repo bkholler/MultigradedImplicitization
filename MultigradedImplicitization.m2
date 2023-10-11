@@ -13,9 +13,9 @@ maxGrading = (f, dom, codom) -> (
 -- does linear algebra, no optimization
 -- deg is the degree as a list
 -- f : dom --> codom
-componentOfIdeal = (deg, f, dom, codom) -> (
+componentOfIdeal = {MaxGrading => null} >> opts -> (deg, f, dom, codom) -> (
     -- maximal grading of ideal
-    D := maxGrading(f, dom, codom);
+    D := if opts.MaxGrading === null then maxGrading(f, dom, codom) else opts.MaxGrading; 
 
     -- introduce gradings to domain
     n := numColumns(vars dom);
