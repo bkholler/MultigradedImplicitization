@@ -4,7 +4,8 @@ needsPackage "gfanInterface";
 maxGrading = (f, dom, codom) -> (
     -- set up elimination ideal
     elimRing := dom ** codom;
-    elimIdeal := ideal(apply(flatten entries vars dom, x -> sub(x,elimRing) - sub(f(x),elimRing)));
+    X := vars dom;
+    elimIdeal := ideal(sub(X,elimRing) - sub(f(X),elimRing));
     -- return lineality space of the Groebner fan
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
 )
