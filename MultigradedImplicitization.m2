@@ -8,7 +8,7 @@ maxGrading = (f, dom, codom) -> (
     X := vars dom;
     elimIdeal := ideal(sub(X, elimRing) - sub(f(X), elimRing));
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
-)
+);
 
 -- does linear algebra, no optimization
 -- deg is the degree as a list
@@ -36,28 +36,4 @@ componentOfIdeal = (deg, f, dom, codom) -> (
 
     -- return basis of R_deg \cap ker(f)
     return sub(B,dom) * K
-)
-
-
-
-
-
-
-
-
-
-
-
-
--- ezpz example
-R = QQ[x,y,z]
-S = QQ[s,t]
-f = map(S,R,{t^8*(1-t)^(10)*s^(15), t^5*(1-t)^7*s^(10), t^3*(1-t)^4*s^6});
-
-
-timing componentOfIdeal({30}, f, R, S)
-
-timing ker f
-
-
-
+);
