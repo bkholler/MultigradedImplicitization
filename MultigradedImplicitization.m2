@@ -65,6 +65,9 @@ componentOfIdeal = (deg, G, phi, dom) -> (
 );
 
 -- this guy only works if it has usual Z-grading
+-- things to add to this function:
+--      make it work when it doesn't have usual Z-grading, and check for this
+--      make an option to override this maybe if you already have D that you want to use
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
@@ -86,5 +89,8 @@ componentsOfIdeal = (phi, d) -> (
     );
     return G
 )
+
+
+
 
 
