@@ -12,7 +12,8 @@ maxGrading = f -> (
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
 );
 
-findBasisInDegree = (G, R, deg) -> (  
+findBasisInDegree = (G, R, deg) -> (
+
     if #G == 0 then (
         return basis(deg, R);
     );
@@ -31,12 +32,8 @@ findBasisInDegree = (G, R, deg) -> (
 
 
 -- G = non-empty known generators of degree less than deg
-componentOfIdeal = (deg, G, f, D) -> (
-    --domain and codomain of f
-    n := numColumns(vars source f);
-    dom := newRing(source f, Degrees => D_(toList(0..n-1)));
-    codom := target f;
-
+componentOfIdeal = (deg, G, f) -> (
+    
     --G in dom
     domG := apply(G, g -> sub(g,dom));
 
@@ -47,7 +44,20 @@ componentOfIdeal = (deg, G, f, D) -> (
 
     K := gens ker sub(coeffs,QQ);
 
+    print(K);
+
     newGens := flatten entries (monomialBasis * K);
 
     return newGens
 )
+
+
+componentsOfIdeal = (degs, f, D) -> (
+
+    n := numgens(source phi);
+    dom := newRing(source f, Degrees => B_(toList(0..n-1)));
+    codom := target f;
+
+    return for deg in degs list componentOfIdeal(flatten entries deg, {}, phi)
+)
+
