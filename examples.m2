@@ -18,20 +18,16 @@ netList L
 
 
 --Example 2
-
+restart
+load "MultigradedImplicitization.m2"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2";
 
-n = 4;
+n = 10;
 R = qRing n;
 f = sunletParam n;
 S = ring(f#0);
 f = map(S,R,f);
 
-D = matrix{toList(2^(n-1):1)};
+componentsOfIdeal(f,2)
 
-G = {};
-L = for i in 0..3 list (
-    G = G | componentOfIdeal({i}, G, f, D);
-    {i, #G}
-);
-netList L
+D = matrix{toList(2^(n-1):1)};

@@ -1,4 +1,5 @@
 needsPackage "gfanInterface";
+needsPackage "Polyhedra";
 
 -- Input : f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
 -- Output : lineality space of Groebner fan
@@ -40,6 +41,8 @@ findBasisInDegree = (G, R, deg) -> (
 );
 
 
+
+
 -- G = non-empty known generators of degree less than deg
 componentOfIdeal = (deg, G, phi, dom) -> (
     
@@ -58,13 +61,27 @@ componentOfIdeal = (deg, G, phi, dom) -> (
     newGens := flatten entries (monomialBasis * K);
 
     return newGens
-)
+);
 
 
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
     A := maxGrading(phi);
-    dom := newRing(source phi, Degrees => A_(toList(0..n-1)));
+    omega := A_(toList(0..n-1));
+    dom := newRing(source phi, Degrees => omega);
+
+    -- assume homogeneous with normal Z-grading
+    G := {};
+    for i in 0..d do (
+        B := sub(basis(i, source phi), dom);
+        lats := unique apply(flatten entries B, m -> degree m);
+        -- This is the part that should be in parallel
+        for deg in lats do (
+            G = G | componentOfIdeal(deg, G, phi, dom);
+        );
+    );
+    return G
 )
+
 
