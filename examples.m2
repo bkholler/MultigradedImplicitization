@@ -21,14 +21,17 @@ netList L
 
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
 
-R = qRing(5)
-f = sunletParam 5
-S = ring(f#0)
-f = map(S,R,f)
+n = 6;
+R = qRing n;
+f = sunletParam n;
+S = ring(f#0);
+f = map(S,R,f);
 
-D = maxGrading f
-deg = D * (transpose matrix{{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0}})
-deg = flatten entries deg
-G = {}
+D = matrix{toList(2^(n-1):1)};
 
-componentOfIdeal(deg, G, f, D)
+G = {};
+L = for i in 0..3 list (
+    G = G | componentOfIdeal({i}, G, f, D);
+    {i, #G}
+);
+netList L

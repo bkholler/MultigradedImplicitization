@@ -28,7 +28,7 @@ findBasisInDegree = (G, R, deg) -> (
     -- and collect coefficients.
     (mons, coeffs) := coefficients(mat);
 
-    -- find the linear relations
+    -- find the independent linear relations
     coeffs = mingens(image sub(coeffs, QQ));
 
     -- remove monomials corresponding to pivots
