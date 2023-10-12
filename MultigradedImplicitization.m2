@@ -50,4 +50,6 @@ componentOfIdeal = (deg, G, f, D) -> (
     newGens := flatten entries (monomialBasis * K);
 
     return newGens
-)
+);
+
+

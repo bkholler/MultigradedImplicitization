@@ -15,3 +15,20 @@ L = for i in 0..100 list (
     {i, G}
 );
 netList L
+
+
+--Example 2
+
+load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
+
+R = qRing(5)
+f = sunletParam 5
+S = ring(f#0)
+f = map(S,R,f)
+
+D = maxGrading f
+deg = D * (transpose matrix{{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0}})
+deg = flatten entries deg
+G = {}
+
+componentOfIdeal(deg, G, f, D)
