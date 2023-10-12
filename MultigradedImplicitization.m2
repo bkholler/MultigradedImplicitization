@@ -77,9 +77,11 @@ componentsOfIdeal = (phi, d) -> (
     for i in 0..d do (
         B := sub(basis(i, source phi), dom);
         lats := unique apply(flatten entries B, m -> degree m);
+        
         -- This is the part that should be in parallel
+        oldG = G;
         for deg in lats do (
-            G = G | componentOfIdeal(deg, G, phi, dom);
+            G = G | componentOfIdeal(deg, oldG, phi, dom);
         );
     );
     return G

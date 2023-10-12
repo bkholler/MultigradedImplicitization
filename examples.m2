@@ -22,7 +22,7 @@ restart
 load "MultigradedImplicitization.m2"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2";
 
-n = 10;
+n = 7;
 R = qRing n;
 f = sunletParam n;
 S = ring(f#0);
