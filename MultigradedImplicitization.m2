@@ -18,14 +18,23 @@ findBasisInDegree = (G, R, deg) -> (
         return basis(deg, R);
     );
 
+    -- otherwise, we shift G in all possible ways to land in R_deg
     L := apply(G, g -> g*basis(deg - degree(g), R));
+    
+    -- stick em all in a matrix
     mat := L#0;
     scan(1..#L-1, i -> mat = mat | L#i);
+
+    -- and collect coefficients.
     (mons, coeffs) := coefficients(mat);
+
+    -- find the independent linear relations
     coeffs = mingens(image sub(coeffs, QQ));
-    badMonomials := apply(pivots coeffs, i -> mons_(i#0));
+
+    -- remove monomials corresponding to pivots
+    badMonomials := apply(pivots coeffs, i -> mons_(0,i#0));
     monomialBasis := flatten entries basis(deg, R);
-    scan(badMonomials, m -> monomialBasis = delete((flatten entries m)#0, monomialBasis));
+    scan(badMonomials, m -> monomialBasis = delete(m, monomialBasis));
 
     return matrix{monomialBasis}
 );
@@ -37,11 +46,13 @@ componentOfIdeal = (deg, G, f) -> (
     --G in dom
     domG := apply(G, g -> sub(g,dom));
 
-    -- basis for V where  dom_deg = span(G) \oplus V
+    -- The span of monomialBasis is all you need to search for, since G is known
     monomialBasis := findBasisInDegree(domG, dom, deg);
 
+    -- collect coefficients into a matrix
     (mons, coeffs) := coefficients(f(sub(monomialBasis, source f)));
 
+    -- find the linear relations among coefficients
     K := gens ker sub(coeffs,QQ);
 
     print(K);
