@@ -32,9 +32,9 @@ findBasisInDegree = (G, R, deg) -> (
     coeffs = mingens(image sub(coeffs, QQ));
 
     -- remove monomials corresponding to pivots
-    badMonomials := apply(pivots coeffs, i -> mons_(i#0));
+    badMonomials := apply(pivots coeffs, i -> mons_(0,i#0));
     monomialBasis := flatten entries basis(deg, R);
-    scan(badMonomials, m -> monomialBasis = delete((flatten entries m)#0, monomialBasis));
+    scan(badMonomials, m -> monomialBasis = delete(m, monomialBasis));
 
     return matrix{monomialBasis}
 );
