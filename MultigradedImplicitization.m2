@@ -2,13 +2,13 @@ needsPackage "gfanInterface";
 
 -- Input : f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
 -- Output : lineality space of Groebner fan
-maxGrading = f -> (
+maxGrading = phi -> (
     -- set up elimination ideal
-    dom := source f;
-    codom := target f;
+    dom := source phi;
+    codom := target phi;
     elimRing := dom ** codom;
     X := vars dom;
-    elimIdeal := ideal(sub(X, elimRing) - sub(f(X), elimRing));
+    elimIdeal := ideal(sub(X, elimRing) - sub(phi(X), elimRing));
     return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
 );
 
@@ -41,7 +41,7 @@ findBasisInDegree = (G, R, deg) -> (
 
 
 -- G = non-empty known generators of degree less than deg
-componentOfIdeal = (deg, G, f) -> (
+componentOfIdeal = (deg, G, phi, dom) -> (
     
     --G in dom
     domG := apply(G, g -> sub(g,dom));
@@ -50,12 +50,10 @@ componentOfIdeal = (deg, G, f) -> (
     monomialBasis := findBasisInDegree(domG, dom, deg);
 
     -- collect coefficients into a matrix
-    (mons, coeffs) := coefficients(f(sub(monomialBasis, source f)));
+    (mons, coeffs) := coefficients(phi(sub(monomialBasis, source f)));
 
     -- find the linear relations among coefficients
     K := gens ker sub(coeffs,QQ);
-
-    print(K);
 
     newGens := flatten entries (monomialBasis * K);
 
@@ -63,12 +61,10 @@ componentOfIdeal = (deg, G, f) -> (
 )
 
 
-componentsOfIdeal = (degs, f, D) -> (
+componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
-    dom := newRing(source f, Degrees => B_(toList(0..n-1)));
-    codom := target f;
-
-    return for deg in degs list componentOfIdeal(flatten entries deg, {}, phi)
+    A := maxGrading(phi);
+    dom := newRing(source phi, Degrees => A_(toList(0..n-1)));
 )
 
