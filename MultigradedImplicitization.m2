@@ -43,7 +43,8 @@ findBasisInDegree = (G, R, deg) -> (
 
 
 
--- G = non-empty known generators of degree less than deg
+-- G = known generators of degree less than deg
+-- this guy fucks with all Z^k-gradings
 componentOfIdeal = (deg, G, phi, dom) -> (
     
     --G in dom
@@ -63,7 +64,7 @@ componentOfIdeal = (deg, G, phi, dom) -> (
     return newGens
 );
 
-
+-- this guy only works if it has usual Z-grading
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
