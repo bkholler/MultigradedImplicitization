@@ -8,8 +8,9 @@ maxGrading = phi -> (
     codom := target phi;
     elimRing := dom ** codom;
     X := vars dom;
+    n := numgens dom;
     elimIdeal := ideal(sub(X, elimRing) - sub(phi(X), elimRing));
-    return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
+    return (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
 );
 
 findBasisInDegree = (G, R, deg) -> (
@@ -69,8 +70,7 @@ componentOfIdeal = (deg, G, phi, dom) -> (
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
-    A := maxGrading(phi);
-    omega := A_(toList(0..n-1));
+    omega := maxGrading(phi);
     dom := newRing(source phi, Degrees => omega);
 
     -- assumes homogeneous with normal Z-grading
