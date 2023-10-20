@@ -13,14 +13,23 @@ maxGrading = phi -> (
     return (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
 );
 
-findBasisInDegree = (G, R, deg) -> (
+findBasisInDegree = (G, R, deg, B) -> (
 
     if #G == 0 then (
         return basis(deg, R);
     );
 
     -- otherwise, we shift G in all possible ways to land in R_deg
-    L := apply(G, g -> g*basis(deg - degree(g), R));
+
+    L := apply(G, g -> (
+            checkDegree := deg - degree(g);
+            if B#?checkDegree then (
+                g*B#checkDegree
+            ) else (
+                g*basis(deg - degree(g), R)
+            )
+        );
+    );
     
     -- stick em all in a matrix
     mat := L#0;
@@ -42,13 +51,13 @@ findBasisInDegree = (G, R, deg) -> (
 
 -- G = known generators of degree less than deg
 -- this guy fucks with all Z^k-gradings
-componentOfIdeal = (deg, G, phi, dom) -> (
+componentOfIdeal = (deg, G, phi, dom, B) -> (
     
     --G in dom
     domG := apply(G, g -> sub(g,dom));
 
     -- The span of monomialBasis is all you need to search for, since G is known
-    monomialBasis := findBasisInDegree(domG, dom, deg);
+    monomialBasis := findBasisInDegree(domG, dom, deg, B);
 
     -- collect coefficients into a matrix
     (mons, coeffs) := coefficients(phi(sub(monomialBasis, source f)));
@@ -73,17 +82,23 @@ componentsOfIdeal = (phi, d) -> (
     omega := maxGrading(phi);
     dom := newRing(source phi, Degrees => omega);
 
-    -- assumes homogeneous with normal Z-grading
     G := {};
+    basisHash := new MutableHashTable;
+    
+    -- assumes homogeneous with normal Z-grading
     for i in 0..d do (
         B := sub(basis(i, source phi), dom);
         lats := unique apply(flatten entries B, m -> degree m);
+
+        scan(lats, i -> basisHash#i = findBasisInDegree(G,dom,i,basisHash));
+
         
         -- This is the part that should be in parallel
         oldG = G;
         for deg in lats do (
-            G = G | componentOfIdeal(deg, oldG, phi, dom);
+            G = G | componentOfIdeal(deg, oldG, phi, dom, basisHash);
         );
     );
     return G
+    -- return G / (g -> sub(g, source phi))
 );

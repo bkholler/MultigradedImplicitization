@@ -1,6 +1,7 @@
-load "MultigradedImplicitization.m2";
 
 -- Example 1
+restart
+load "MultigradedImplicitization.m2"
 R = QQ[x,y,z];
 S = QQ[s,t];
 
@@ -20,9 +21,9 @@ netList L
 --Example 2
 restart
 load "MultigradedImplicitization.m2"
-load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2";
+load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
 
-n = 7;
+n = 6;
 R = qRing n;
 f = sunletParam n;
 S = ring(f#0);
