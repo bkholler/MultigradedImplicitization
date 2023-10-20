@@ -19,7 +19,7 @@ gmmParamRing = (N, sym1, sym2) -> (
 	m := getSymbol sym2;
 
 	return R := QQ[apply(4, i -> r_i) | apply(indSet, i -> m_i)];
-	)
+)
 
 
 
@@ -46,12 +46,12 @@ gmmTreeParam = T -> (
 			);
 
 	return phi
-	);
+);
 
 
 T = digraph {{4,1}, {4,2}, {4,3}}
 phiList = gmmTreeParam(T);
-f = map(ring(phiList_0), QQ[q_(0,0,0)..q_(3,3,3)], phiList)
+f = map(ring(phiList_0), QQ[q_(0,0,0)..q_(3,3,3)], phiList);
 
 componentsOfIdeal(f,5)
 

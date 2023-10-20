@@ -1,5 +1,4 @@
 needsPackage "gfanInterface";
-needsPackage "Polyhedra";
 
 -- Input : f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
 -- Output : lineality space of Groebner fan
@@ -9,8 +8,9 @@ maxGrading = phi -> (
     codom := target phi;
     elimRing := dom ** codom;
     X := vars dom;
+    n := numgens dom;
     elimIdeal := ideal(sub(X, elimRing) - sub(phi(X), elimRing));
-    return transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))
+    return (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
 );
 
 findBasisInDegree = (G, R, deg) -> (
@@ -40,9 +40,6 @@ findBasisInDegree = (G, R, deg) -> (
     return matrix{monomialBasis}
 );
 
-
-
-
 -- G = known generators of degree less than deg
 -- this guy fucks with all Z^k-gradings
 componentOfIdeal = (deg, G, phi, dom) -> (
@@ -68,14 +65,15 @@ componentOfIdeal = (deg, G, phi, dom) -> (
 -- things to add to this function:
 --      make it work when it doesn't have usual Z-grading, and check for this
 --      make an option to override this maybe if you already have D that you want to use
+--      make an option if the ring already has the appropriate grading
+--      write it in Oscar lol
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);
-    A := maxGrading(phi);
-    omega := A_(toList(0..n-1));
+    omega := maxGrading(phi);
     dom := newRing(source phi, Degrees => omega);
 
-    -- assume homogeneous with normal Z-grading
+    -- assumes homogeneous with normal Z-grading
     G := {};
     for i in 0..d do (
         B := sub(basis(i, source phi), dom);
@@ -88,9 +86,4 @@ componentsOfIdeal = (phi, d) -> (
         );
     );
     return G
-)
-
-
-
-
-
+);
