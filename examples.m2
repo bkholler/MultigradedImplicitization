@@ -31,3 +31,24 @@ f = map(S,R,f);
 componentsOfIdeal(f,2)
 
 D = matrix{toList(2^(n-1):1)};
+
+--Example 3
+restart 
+load "MultigradedImplicitization.m2"
+
+R = QQ[x..z]
+S = QQ[u,v]
+
+f1 = map(S,R,{u^2,u*v,v^2})
+D1 = maxGrading f1
+I1 = ker f1
+
+f2 = map(S,R,{(u+v)^2,(u+v)*(u-v),(u-v)^2})
+D2 = maxGrading f2
+I2 = ker f2
+
+I1 == I2
+
+
+
+
