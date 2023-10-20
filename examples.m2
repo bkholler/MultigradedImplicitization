@@ -35,6 +35,7 @@ D = matrix{toList(2^(n-1):1)};
 --Example 3
 restart 
 load "MultigradedImplicitization.m2"
+needsPackage "Polyhedra"
 
 R = QQ[x..z]
 S = QQ[u,v]
@@ -48,7 +49,9 @@ D2 = maxGrading f2
 I2 = ker f2
 
 I1 == I2
+D1 != D2
 
+isSubset(I1, toricMarkov(D2,R))
 
 
 
