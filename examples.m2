@@ -1,5 +1,6 @@
 
 -- Example 1
+-- this example is broken at the moment. our tech doesn't work and i think it's because of the non-standard Z-grading
 restart
 load "MultigradedImplicitization.m2"
 R = QQ[x,y,z];
@@ -10,15 +11,17 @@ f = map(S,R,im);
 
 D = maxGrading(f);
 
-G = {};
-L = for i in 0..60 list (
-    G = G | componentOfIdeal({i}, G, f, D);
-    {i, G}
-);
-netList L
+
+G = {}
+
+for i in 0..100 do (
+    G = G | componentOfIdeal(i, G, f, R, new MutableHashTable)
+)
+
 
 
 --Example 2
+--still fine
 restart
 load "MultigradedImplicitization.m2"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
@@ -53,6 +56,7 @@ I1 == I2
 D1 != D2
 
 isSubset(I1, toricMarkov(D2,R))
+
 
 
 
