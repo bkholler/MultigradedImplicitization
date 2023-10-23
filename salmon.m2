@@ -53,12 +53,14 @@ T = digraph {{4,1}, {4,2}, {4,3}}
 phiList = gmmTreeParam(T);
 f = map(ring(phiList_0), QQ[q_(0,0,0)..q_(3,3,3)], phiList);
 
-componentsOfIdeal(f,5)
 
 
 
 
-A = transpose mingens image transpose (maxGrading phi)_(toList(0..63))
+
+A = maxGrading f
+
+componentsOfIdeal(f,2)
 
 
 
