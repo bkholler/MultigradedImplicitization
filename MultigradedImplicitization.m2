@@ -13,7 +13,7 @@ maxGrading = phi -> (
     return (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
 );
 
-findBasisInDegree = (G, R, deg, B) -> (
+findBasisInDegree = (G, R, deg, basisHash) -> (
 
     if #G == 0 then (
         return basis(deg, R);
@@ -23,12 +23,12 @@ findBasisInDegree = (G, R, deg, B) -> (
 
     L := apply(G, g -> (
             checkDegree := deg - degree(g);
-            if B#?checkDegree then (
-                g*B#checkDegree
+            if basisHash#?checkDegree then (
+                g*basisHash#checkDegree
             ) else (
-                g*basis(deg - degree(g), R)
+                g*basis(checkDegree, R)
             )
-        );
+        )
     );
     
     -- stick em all in a matrix
@@ -50,14 +50,14 @@ findBasisInDegree = (G, R, deg, B) -> (
 );
 
 -- G = known generators of degree less than deg
--- this guy fucks with all Z^k-gradings
-componentOfIdeal = (deg, G, phi, dom, B) -> (
+componentOfIdeal = (deg, G, phi, dom, basisHash) -> (
     
     --G in dom
     domG := apply(G, g -> sub(g,dom));
 
     -- The span of monomialBasis is all you need to search for, since G is known
-    monomialBasis := findBasisInDegree(domG, dom, deg, B);
+    monomialBasis := findBasisInDegree(domG, dom, deg, basisHash);
+    --monomialBasis = basisHash#deg;
 
     -- collect coefficients into a matrix
     (mons, coeffs) := coefficients(phi(sub(monomialBasis, source f)));
@@ -75,7 +75,7 @@ componentOfIdeal = (deg, G, phi, dom, B) -> (
 --      make it work when it doesn't have usual Z-grading, and check for this
 --      make an option to override this maybe if you already have D that you want to use
 --      make an option if the ring already has the appropriate grading
---      write it in Oscar lol
+--      write it in Oscar
 componentsOfIdeal = (phi, d) -> (
 
     n := numgens(source phi);

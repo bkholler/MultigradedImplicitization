@@ -1,5 +1,5 @@
 restart
-load "../MultigradedImplicitization.m2";
+load "MultigradedImplicitization.m2";
 --needsPackage "Polyhedra";
 --Ring definitions: 
 K=frac(QQ[p_1,p_2,p_3,p_4]);
@@ -10,7 +10,7 @@ Rx=K[var];
 
 --Retrieve tensor on our desired basis
 use R;
-pbar=value get "4leaves_tensor_FinalBasis.txt";
+pbar=value get "roser_model/4leaves_tensor_FinalBasis.txt";
 
 F = map(R,Rx,transpose pbar);
 
@@ -40,13 +40,13 @@ rank(D);
 
 
 --compute the quadratics
-G = componentsOfIdeal(f,2);
+G = componentsOfIdeal(f,3);
 G = G / (g -> sub(g, source(f)));
 
 --double check in the ideal
 G / f;
 
-fileName = "TN93_quartet_quadrics" << "";
+fileName = "TN93_quartet_cubics" << "";
 
 for g in G do (
     fileName << g << endl

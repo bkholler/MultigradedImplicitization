@@ -1,6 +1,6 @@
 
 -- Example 1
--- this example is broken at the moment. our tech doesn't work and i think it's because of the non-standard Z-grading
+-- this example is broken at the moment. i think it's because of the non-standard Z-grading
 restart
 load "MultigradedImplicitization.m2"
 R = QQ[x,y,z];
@@ -26,15 +26,21 @@ restart
 load "MultigradedImplicitization.m2"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
 
-n = 4;
+n = 5;
 R = qRing n;
 f = sunletParam n;
 S = ring(f#0);
 f = map(S,R,f);
 
-componentsOfIdeal(f,2)
+componentsOfIdeal(f,3)
 
 D = matrix{toList(2^(n-1):1)};
+
+
+
+
+
+
 
 --Example 3
 restart 
