@@ -58,26 +58,6 @@ f = map(ring(phiList_0), QQ[q_(0,0,0)..q_(3,3,3)], phiList);
 
 
 
-A = maxGrading f
-
-componentsOfIdeal(f,2)
-
-
-
-
-
-
-B = matrix({toList(64:1)}) || A^(toList(0..(numrows(A)-2)))
-C = coneFromVData(B)
-I = -1*halfspaces(C)
-v = transpose matrix {toList(numrows(I):0)}
-E = matrix({{1} | toList(numcols(I)-1:0)}) || hyperplanes(C)
-d = 5
-w = transpose matrix {{d} | toList(numrows(E)-1:0)}
-P = polyhedronFromHData(I, v, E, w)
-lats = latticePoints(P);
-
-
 
 
 
