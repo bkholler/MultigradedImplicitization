@@ -1,4 +1,5 @@
 needsPackage "gfanInterface";
+allowableThreads = maxAllowableThreads;
 
 -- Input : f : dom = kk[x_1..x_n] --> codom = kk[y_1..y_m]
 -- Output : lineality space of Groebner fan
@@ -13,37 +14,33 @@ maxGrading = phi -> (
     return (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
 );
 
-findBasisInDegree = (G, R, deg, B) -> (
+findBasisInDegree = (deg, dom, previousPolys, basisHash) -> (
 
-    if #G == 0 then (
-        return basis(deg, R);
+    if #previousPolys == 0 then (
+        return basis(deg, dom, Strategy => Default);
     );
 
     -- otherwise, we shift G in all possible ways to land in R_deg
 
-    L := apply(G, g -> (
+    L := for g in previousPolys list(
+
             checkDegree := deg - degree(g);
-            if B#?checkDegree then (
-                g*B#checkDegree
-            ) else (
-                g*basis(deg - degree(g), R)
-            )
+
+            if basisHash#?checkDegree then flatten entries (g*basisHash#checkDegree) else g*(flatten entries basis(deg - degree(g), dom, Strategy => Default))
         );
-    );
     
     -- stick em all in a matrix
-    mat := L#0;
-    scan(1..#L-1, i -> mat = mat | L#i);
+    mat := sub(matrix({flatten L}), dom);
 
     -- and collect coefficients.
     (mons, coeffs) := coefficients(mat);
 
     -- find the independent linear relations
-    coeffs = mingens(image sub(coeffs, QQ));
+    coeffs = try mingens(image sub(coeffs, QQ)) else print(deg);
 
     -- remove monomials corresponding to pivots
     badMonomials := apply(pivots coeffs, i -> mons_(0,i#0));
-    monomialBasis := flatten entries basis(deg, R);
+    monomialBasis := flatten entries basis(deg, dom);
     scan(badMonomials, m -> monomialBasis = delete(m, monomialBasis));
 
     return matrix{monomialBasis}
@@ -51,19 +48,16 @@ findBasisInDegree = (G, R, deg, B) -> (
 
 -- G = known generators of degree less than deg
 -- this guy fucks with all Z^k-gradings
-componentOfIdeal = (deg, G, phi, dom, B) -> (
-    
-    --G in dom
-    domG := apply(G, g -> sub(g,dom));
+componentOfIdeal = (deg, dom, phi, previousPolys, basisHash) -> (
 
     -- The span of monomialBasis is all you need to search for, since G is known
-    monomialBasis := findBasisInDegree(domG, dom, deg, B);
+    monomialBasis := basisHash#deg;
 
     -- collect coefficients into a matrix
-    (mons, coeffs) := coefficients(phi(sub(monomialBasis, source f)));
+    (mons, coeffs) := try coefficients(phi(sub(monomialBasis, source phi))) else print("THIS FAILED");
 
     -- find the linear relations among coefficients
-    K := gens ker sub(coeffs,QQ);
+    K := gens ker sub(coeffs, QQ);
 
     newGens := flatten entries (monomialBasis * K);
 
@@ -82,23 +76,93 @@ componentsOfIdeal = (phi, d) -> (
     omega := maxGrading(phi);
     dom := newRing(source phi, Degrees => omega);
 
-    G := {};
+    previousPolys := {};
     basisHash := new MutableHashTable;
     
     -- assumes homogeneous with normal Z-grading
-    for i in 0..d do (
+    for i in 1..d do (
         B := sub(basis(i, source phi), dom);
         lats := unique apply(flatten entries B, m -> degree m);
 
-        scan(lats, i -> basisHash#i = findBasisInDegree(G,dom,i,basisHash));
+        scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, previousPolys, basisHash));
 
         
         -- This is the part that should be in parallel
-        oldG = G;
+        oldPolys := previousPolys;
         for deg in lats do (
-            G = G | componentOfIdeal(deg, oldG, phi, dom, basisHash);
+            previousPolys = previousPolys | componentOfIdeal(deg, dom, phi, oldPolys, basisHash);
         );
     );
-    return G
-    -- return G / (g -> sub(g, source phi))
+    return previousPolys
 );
+
+
+parComponentOfIdeal = (deg, dom, phi, basisHash, polyHash) -> () -> (
+
+    previousPolys := flatten for z in gens(dom) list if polyHash#?(deg - degree(z)) then polyHash#(deg - degree(z));
+
+    previousPolys = delete(null, previousPolys);
+
+    monomialBasis := findBasisInDegree(deg, dom, previousPolys, basisHash);
+
+    (mons, coeffs) := coefficients(phi(sub(monomialBasis, source phi)));
+
+    -- find the linear relations among coefficients
+    K := gens ker sub(coeffs, QQ);
+
+    newGens := flatten entries (monomialBasis * K);
+
+    return (monomialBasis, newGens)
+    )
+
+parComponentsOfIdeal = (phi, d) -> (
+
+    n := numgens(source phi);
+    omega := maxGrading(phi);
+    dom := newRing(source phi, Degrees => omega);
+
+    basisHash := new MutableHashTable;
+    polyHash := new MutableHashTable;
+
+    threadVariable monomialBasis;
+    threadVariable mons;
+    threadVariable coeffs;
+    threadVariable newGens;
+    threadVariable previousPolys;
+    threadVariable badMonomials;
+    threadVariable mat;
+    threadVariable K;
+
+    for i in 1..d do(
+
+        allMonomials := sub(basis(i, source phi), dom);
+        uniqueDegrees := unique apply(flatten entries allMonomials, m -> degree m);
+
+        tasksPerComponent = new MutableHashTable from apply(uniqueDegrees, deg -> deg => createTask parComponentOfIdeal(deg, dom, phi, basisHash, polyHash));
+        tasks = values(tasksPerComponent) / schedule;
+        setIOSynchronized();
+        print("all tasks scheduled");
+        while (not all(tasks / isReady, i -> i)) do(
+
+            sleep 1;
+            print(tasks / isReady);
+            );
+
+        scan(uniqueDegrees, deg -> (
+
+            (monomialBasis, newGens) := taskResult(tasksPerComponent#deg);
+
+            basisHash#deg = flatten entries monomialBasis;
+            polyHash#deg = newGens;
+            )
+            );
+        );
+
+    return polyHash;
+    )
+
+
+
+
+
+
