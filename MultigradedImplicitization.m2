@@ -22,7 +22,7 @@ newPackage(
 export {
   -- Methods
   "maxGrading",
-  "findBasisInDegree",
+  "trimBasisInDegree",
   "componentOfKernel",
   "componentsOfKernel",
   -- Options
@@ -59,10 +59,10 @@ assert(ker(A) == ker(maxGrading(F)));
 
 
 ----------------------------
------ findBasisInDegree ----
+----- trimBasisInDegree ----
 ----------------------------
-findBasisInDegree = method();
-findBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G, basisHash) -> (
+trimBasisInDegree = method();
+trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G, basisHash) -> (
 
   if #G == 0 then (
       return basisHash#deg;
@@ -99,7 +99,7 @@ findBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
   matrix{monomialBasis}
   )
 
-findBasisInDegree (List, Ring, MutableHashTable) := Matrix => (deg, dom, basisHash) -> findBasisInDegree(deg, dom, {}, basisHash)
+trimBasisInDegree (List, Ring, MutableHashTable) := Matrix => (deg, dom, basisHash) -> trimBasisInDegree(deg, dom, {}, basisHash)
 
 TEST ///
 A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
@@ -108,11 +108,11 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
+assert(trimBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
 B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
-scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, {}, basisHash));
-assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
+scan(lats, deg -> basisHash#deg = trimBasisInDegree(deg, dom, {}, basisHash));
+assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
 ///
 
 
@@ -138,7 +138,7 @@ componentOfKernel (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F,
 
 componentOfKernel (List, Ring, RingMap, MutableHashTable) := List => opts ->  (deg, dom, F, basisHash) -> (
 
-      monomialBasis := if basisHash#?deg then basisHash#deg else findBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
+      monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
 
       componentOfKernel(deg, dom, F, monomialBasis)   
   )
@@ -185,7 +185,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       for deg in lats do (
         
         basisHash#deg = basis(deg, dom);
-        monomialBasis := findBasisInDegree(deg, dom, G, basisHash);
+        monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
         gensHash#deg = if numcols(basisHash#deg) == 1 then {} else componentOfKernel(deg, dom, F, monomialBasis);
       );
   );
@@ -290,14 +290,14 @@ Description
 
 doc ///
 Key
-  findBasisInDegree
-  (findBasisInDegree, List, Ring, List, MutableHashTable)
-  (findBasisInDegree, List, Ring, MutableHashTable)
+  trimBasisInDegree
+  (trimBasisInDegree, List, Ring, List, MutableHashTable)
+  (trimBasisInDegree, List, Ring, MutableHashTable)
 Headline
   Finds a basis for the homogeneous component of a graded ring but removes basis elements which correspond to previously computed generators. 
 Usage
-  findBasisInDegree(deg, dom, G, B)
-  findBasisInDegree(deg, dom, B)
+  trimBasisInDegree(deg, dom, G, B)
+  trimBasisInDegree(deg, dom, B)
 Inputs
   deg:List
     the degree of the homogeneous component to compute
@@ -324,11 +324,14 @@ Description
     F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
     basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-    assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
     B = basis(2, source F) | basis(3, source F);
     lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
-    scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, {}, basisHash));
-    assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
+    scan(lats, deg -> basisHash#deg = basis(deg, dom));
+    trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash)
+  Text
+    Observe that after trimming we get a smaller monomial basis for this homogeneous component. The full monomial basis is
+  Example
+    basis({2,1,0,1,1}, dom)
 ///
 
 
@@ -356,10 +359,10 @@ Description
   Text
     Computes all minimal generators of $\ker(F)$ which are of total degree at most {\tt d}. 
   Example
-    A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
-    R = QQ[x_1..x_(numcols A)];
-    S = QQ[t_1..t_(numrows A)];
-    F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+    A = matrix {{1,1,1,0,0,0}, {0,0,0,1,1,1}, {1,0,0,1,0,0}, {0,1,0,0,1,0}, {0,0,1,0,0,1}}
+    R = QQ[x_(1,1)..x_(2,3)];
+    S = QQ[t_1..t_2, s_1..s_3];
+    F = map(S, R, {t_1*s_1, t_1*s_2, t_1*s_3, t_2*s_1, t_2*s_2, t_2*s_3})
     peek componentsOfKernel(2, F)
   Text
     If a grading in which $\ker(F)$ is homogeneous is already known or a specific grading is desired then the option {\tt Grading} can be used to specify this.
@@ -410,15 +413,15 @@ Description
   Text
     Computes all minimal generators of $\ker(F)$ which are in the homogeneous component of degree {\tt deg}
   Example
-    A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
-    R = QQ[x_1..x_(numcols A)];
-    S = QQ[t_1..t_(numrows A)];
-    F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+    A = matrix {{1,1,1,0,0,0}, {0,0,0,1,1,1}, {1,0,0,1,0,0}, {0,1,0,0,1,0}, {0,0,1,0,0,1}}
+    R = QQ[x_(1,1)..x_(2,3)];
+    S = QQ[t_1..t_2, s_1..s_3];
+    F = map(S, R, {t_1*s_1, t_1*s_2, t_1*s_3, t_2*s_1, t_2*s_2, t_2*s_3})
     dom = newRing(R, Degrees => A);
     componentOfKernel({1,1,0,1,1}, dom, F)
   Text
       The option {\tt PreviousGens} can be used to specify a set of previously computed generators. 
-      In the case that a monomial basis or hash table of monomial bases is not given then @TO2{findBasisInDegree, "findBasisInDegree"}@
+      In the case that a monomial basis or hash table of monomial bases is not given then @TO2{trimBasisInDegree, "trimBasisInDegree"}@
       will be used to compute a monomial basis and {\tt PreviousGens} will be used to trim this basis. 
 --  Code
 --    todo
