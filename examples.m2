@@ -16,8 +16,6 @@ G = new HashTable from G;
 
 G = apply(flatten values(G), g -> sub(g, R))
 
-G / factor
-
 
 
 
@@ -48,7 +46,7 @@ G = apply(flatten values(G), g -> sub(g, R))
 --Example 3
 restart 
 needsPackage "MultigradedImplicitization"
-needsPackage "Polyhedra"
+
 
 R = QQ[x..z]
 S = QQ[u,v]
@@ -57,7 +55,7 @@ phi = map(S,R,{u^2,u*v,v^2})
 A = maxGrading phi
 I = ker phi
 
-G = componentsOfKernel(10,phi)
+G = componentsOfKernel(20,phi)
 G = new HashTable from G;
 G = apply(flatten values G, g -> sub(g,R))
 
@@ -68,7 +66,7 @@ psi = map(S,R,{(u+v)^2,(u+v)*(u-v),(u-v)^2})
 B = maxGrading psi
 J = ker psi 
 
-H = componentsOfKernel(10,psi)
+H = componentsOfKernel(20,psi)
 H = new HashTable from H;
 H = apply(flatten values H, g -> sub(g,R))
 
