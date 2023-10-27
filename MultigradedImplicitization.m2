@@ -65,7 +65,7 @@ findBasisInDegree = method();
 findBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G, basisHash) -> (
 
   if #G == 0 then (
-      return basis(deg, dom);
+      return basisHash#deg;
   );
 
   -- otherwise, we shift G in all possible ways to land in R_deg
@@ -75,6 +75,7 @@ findBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
           if basisHash#?checkDegree then (
               g*basisHash#checkDegree
           ) else (
+              -- this else condition is only hit when basis(checkDegree,dom) = |0|
               g*basis(checkDegree, dom)
           )
       )
@@ -92,7 +93,7 @@ findBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
 
   -- remove monomials corresponding to pivots
   badMonomials := apply(pivots coeffs, i -> mons_(0,i#0));
-  monomialBasis := flatten entries basis(deg, dom);
+  monomialBasis := flatten entries basisHash#deg;
   scan(badMonomials, m -> monomialBasis = delete(m, monomialBasis));
 
   matrix{monomialBasis}
@@ -107,11 +108,11 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-assert(findBasisInDegree({1,1,1,1,0}, dom, {}, basisHash) == matrix {{x_(1,1)*x_(2,2), x_(1,2)*x_(2,1)}});
-B = basis(2, source F);
+assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
+B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
 scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, {}, basisHash));
-assert(findBasisInDegree({2,1,1,1,1}, deg,  {x_(1,2)*x_(2,1)-x_(1,1)*x_(2,2), x_(1,3)*x_(2,1)-x_(1,1)*x_(2,3), x_(1,3)*x_(2,2)-x_(1,2)*x_(2,3)}, basisHash) == matrix {{x_(1,2)*x_(1,3)*x_(2,1)}});
+assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
 ///
 
 
@@ -159,11 +160,11 @@ R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-assert(componentOfKernel({1,1,1,1,0}, dom, F, matrix {{x_(1,1)*x_(2,2), x_(1,2)*x_(2,1)}}) == {x_(1,2)*x_(2,1)-x_(1,1)*x_(2,2)});
+assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
 
-----------------------------
+-----------------------------
 ----- componentsOfKernel ----
---------------///
+-----------------------------///
 --------------
 componentsOfKernel = method(Options => {Grading => null});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
@@ -183,8 +184,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
       for deg in lats do (
         
-        basisHash#deg = findBasisInDegree(deg, dom, G, basisHash);
-        gensHash#deg = if numcols(basisHash#deg) == 1 then {} else componentOfKernel(deg, dom, F, basisHash#deg);
+        basisHash#deg = basis(deg, dom);
+        monomialBasis := findBasisInDegree(deg, dom, G, basisHash);
+        gensHash#deg = if numcols(basisHash#deg) == 1 then {} else componentOfKernel(deg, dom, F, monomialBasis);
       );
   );
   
@@ -197,7 +199,10 @@ R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-assert(componentsOfKernel(2, F) == {x_(1,2)*x_(2,1)-x_(1,1)*x_(2,2), x_(1,3)*x_(2,1)-x_(1,1)*x_(2,3), x_(1,3)*x_(2,2)-x_(1,2)*x_(2,3)});
+G = componentsOfKernel(2,F);
+G = new HashTable from G;
+G = delete(null, flatten values(G));
+assert(sub(ideal(G),R) == ker F)
 ///
 
 -- Documentation below
@@ -313,13 +318,17 @@ Description
     Monomials which correspond to previously computed relations which are in {\tt G} are automatically removed since they will not yield new generators
     in $\ker(F)$ when applying @TO2{componentOfKernel, "componentOfKernel"}@ to this basis.  
   Example
-    A = matrix {{1,1,1,0,0,0}, {0,0,0,1,1,1}, {1,0,0,1,0,0}, {0,1,0,0,1,0}, {0,0,1,0,0,1}}
-    R = QQ[x_(1,1)..x_(2,3)];
-    S = QQ[t_1..t_2, s_1..s_3];
-    F = map(S, R, {t_1*s_1, t_1*s_2, t_1*s_3, t_2*s_1, t_2*s_2, t_2*s_3})
+    A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
+    R = QQ[x_1..x_(numcols A)];
+    S = QQ[t_1..t_(numrows A)];
+    F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
-    B = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-    findBasisInDegree({1,1,1,1,0}, dom, B)
+    basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
+    assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
+    B = basis(2, source F) | basis(3, source F);
+    lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
+    scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, {}, basisHash));
+    assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
 ///
 
 
@@ -406,7 +415,7 @@ Description
     S = QQ[t_1..t_(numrows A)];
     F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
-    componentOfKernel({1,1,1,1,0}, dom, F)
+    componentOfKernel({1,1,0,1,1}, dom, F)
   Text
       The option {\tt PreviousGens} can be used to specify a set of previously computed generators. 
       In the case that a monomial basis or hash table of monomial bases is not given then @TO2{findBasisInDegree, "findBasisInDegree"}@
