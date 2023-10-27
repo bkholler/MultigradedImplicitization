@@ -323,12 +323,12 @@ Description
     S = QQ[t_1..t_(numrows A)];
     F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
-    basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-    assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
-    B = basis(2, source F) | basis(3, source F);
-    lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
-    scan(lats, deg -> basisHash#deg = findBasisInDegree(deg, dom, {}, basisHash));
-    assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
+    B = basis(1, source F) | basis(2, source F) | basis(3, source F);
+    DEGS = unique apply(flatten entries B, i -> degree(sub(i,dom)));
+    basisHash = new MutableHashTable;
+    scan(DEGS, deg -> basisHash#deg = basis(deg, dom));
+    assert(findBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}})
+    assert(findBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}})
 ///
 
 
