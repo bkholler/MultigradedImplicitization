@@ -1,24 +1,27 @@
 
 -- Example 1
--- this example is broken at the moment. i think it's because of the non-standard Z-grading
 restart
-needsPackage "MultigradedImplicitazation"
-R = QQ[x,y,z];
-S = QQ[s,t];
+needsPackage "MultigradedImplicitization"
+R = QQ[x,y,z,w];
+S = QQ[u,v,t];
 
-im = {t^8*(1-t)^(10)*s^(15), t^5*(1-t)^(7)*s^(10), t^3*(1-t)^4*s^6};
-f = map(S,R,im);
+phiList = {u^(8)*(1-u)^(10)*v^(15)*t^(16), u^(5)*(1-u)^(7)*v^(10)*t^(11), u^(3)*(1-u)^(4)*v^(6)*t^(7), t};
+phi = map(S,R,phiList);
 
+D = maxGrading phi
 
+G = componentsOfKernel(11,phi)
 
+G = new HashTable from G;
 
+G = apply(flatten values(G), g -> sub(g, R))
 
+G / factor
 
 
 
 
 --Example 2
---still fine
 restart
 needsPackage "MultigradedImplicitization"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
@@ -29,7 +32,7 @@ f = sunletParam n;
 S = ring(f#0);
 f = map(S,R,f);
 
-G = componentsOfKernel(3,f)
+G = componentsOfKernel(2,f)
 
 G = new HashTable from G;
 
@@ -50,19 +53,24 @@ needsPackage "Polyhedra"
 R = QQ[x..z]
 S = QQ[u,v]
 
-f1 = map(S,R,{u^2,u*v,v^2})
-D1 = maxGrading f1
-I1 = ker f1
+phi = map(S,R,{u^2,u*v,v^2})
+A = maxGrading phi
+I = ker phi
 
-f2 = map(S,R,{(u+v)^2,(u+v)*(u-v),(u-v)^2})
-D2 = maxGrading f2
-I2 = ker f2
+G = componentsOfKernel(10,phi)
+G = new HashTable from G;
+G = apply(flatten values G, g -> sub(g,R))
 
-I1 == I2
-D1 != D2
 
-isSubset(I1, toricMarkov(D2,R))
 
+
+psi = map(S,R,{(u+v)^2,(u+v)*(u-v),(u-v)^2})
+B = maxGrading psi
+J = ker psi 
+
+H = componentsOfKernel(10,psi)
+H = new HashTable from H;
+H = apply(flatten values H, g -> sub(g,R))
 
 
 --Example 4
@@ -104,9 +112,15 @@ timing scan(4..7, n -> scan(1..n//2, k -> grassWithGB(n,k))) -- just gb
 
 
 
+phi = grass(6,3);
+R = source phi
+
 G = grassWithMI(6,3)
 G = new HashTable from G;
-I36 = ideal flatten values(G)
+G = apply(flatten values G, g -> sub(g,R))
+I36 = ideal G
 dim I36 == 3*(6-3) + 1
 isPrime I36
+
+G / phi
 
