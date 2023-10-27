@@ -1,6 +1,6 @@
 restart
-load "MultigradedImplicitization.m2";
---needsPackage "Polyhedra";
+needsPackage "MultigradedImplicitization"
+
 --Ring definitions: 
 K=frac(QQ[p_1,p_2,p_3,p_4]);
 R=K[l_(1,1)..l_(5,4)];
@@ -10,9 +10,7 @@ Rx=K[var];
 
 --Retrieve tensor on our desired basis
 use R;
-pbar=value get "roser_model/4leaves_tensor_FinalBasis.txt";
-
-F = map(R,Rx,transpose pbar);
+pbar=value get "4leaves_tensor_FinalBasis.txt";
 
 --Different types of entries in the tensor in the new basis
 nonMonomial=select(S,i->(length terms pbar_(position(S,j->j==i),0)>1));
@@ -33,22 +31,24 @@ T = QQ[apply(nonZeroEntries, ind -> x_ind)];
 f = map(S,T, apply(nonZeroPBar, i -> sub(i,S)));
 
 --grading
-D = maxGrading f;
+D = maxGrading f
 
 --dimension of grading
-rank(D);
-
+rank(D)
 
 --compute the quadratics
-G = componentsOfIdeal(f,3);
-G = G / (g -> sub(g, source(f)));
+G = componentsOfKernel(2,f);
+
+H = (flatten delete({},values(G))) / (g -> sub(g, source f))
 
 --double check in the ideal
-G / f;
+(unique (H / f)) == {0}
 
-fileName = "TN93_quartet_cubics" << "";
 
-for g in G do (
+--stick in a file
+fileName = "TN93_quartet_quadrics" << "";
+
+for g in H do (
     fileName << g << endl
 );
 

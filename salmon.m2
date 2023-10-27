@@ -1,7 +1,7 @@
 restart
 needsPackage "Graphs";
 needsPackage "Polyhedra";
-load "MultigradedImplicitization.m2"
+needsPackage "MultigradedImplicitization"
 
 -- Creates the ring of parameters whose variables are the root parameters and entries of the transition matrices
 -- N, a phylogenetic network
@@ -54,8 +54,11 @@ phiList = gmmTreeParam(T);
 f = map(ring(phiList_0), QQ[q_(0,0,0)..q_(3,3,3)], phiList);
 
 
+D = maxGrading f
 
 
+
+G = componentsOfKernel(5,f)
 
 
 

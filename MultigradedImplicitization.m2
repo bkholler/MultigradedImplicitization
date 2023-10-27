@@ -168,7 +168,7 @@ assert(componentOfKernel({1,1,1,1,0}, dom, F, matrix {{x_(1,1)*x_(2,2), x_(1,2)*
 componentsOfKernel = method(Options => {Grading => null});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
-  A := if opts.Grading == null then maxGrading(F) else opts.Grading;
+  A := if opts.Grading === null then maxGrading(F) else opts.Grading;
   dom := newRing(source F, Degrees => A);
   basisHash := new MutableHashTable;
   gensHash := new MutableHashTable;
