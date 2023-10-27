@@ -20,7 +20,7 @@ f = map(S,R,im);
 --Example 2
 --still fine
 restart
-load "MultigradedImplicitization.m2"
+needsPackage "MultigradedImplicitization"
 load "~/Documents/my_scripts/sunlets/sunletQuadGens.m2"
 
 n = 5;
@@ -29,9 +29,12 @@ f = sunletParam n;
 S = ring(f#0);
 f = map(S,R,f);
 
-componentsOfIdeal(f,3)
+G = componentsOfKernel(3,f)
 
-D = matrix{toList(2^(n-1):1)};
+G = new HashTable from G;
+
+G = apply(flatten values(G), g -> sub(g, R))
+
 
 
 
@@ -41,7 +44,7 @@ D = matrix{toList(2^(n-1):1)};
 
 --Example 3
 restart 
-load "MultigradedImplicitization.m2"
+needsPackage "MultigradedImplicitization"
 needsPackage "Polyhedra"
 
 R = QQ[x..z]
@@ -101,5 +104,9 @@ timing scan(4..7, n -> scan(1..n//2, k -> grassWithGB(n,k))) -- just gb
 
 
 
-
+G = grassWithMI(6,3)
+G = new HashTable from G;
+I36 = ideal flatten values(G)
+dim I36 == 3*(6-3) + 1
+isPrime I36
 
