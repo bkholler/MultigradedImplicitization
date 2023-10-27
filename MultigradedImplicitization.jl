@@ -1,5 +1,5 @@
 using Oscar
-
+using Distributed
 
 
 # Some generic helper functions which I could not find in Julia or OSCAR
@@ -95,14 +95,14 @@ end
 
 
 
-function component_of_ideal(phi, deg, prev_gens)
+function component_of_kernel(deg, phi, prev_gens)
 
     mon_basis = find_basis_in_degree(domain(phi), deg, prev_gens)
     image_polys = [phi(m) for m in mon_basis]
     mons = unique!(reduce(vcat, [collect(monomials(f)) for f in image_polys]))
     coeffs = mons_and_coeffs(mons, image_polys)
     (r, K) = nullspace(coeffs)
-    
+
     return mon_basis*K
 end
 
@@ -112,7 +112,7 @@ end
 
 
 
-function components_of_ideal(phi, d)
+function components_of_kernel(d, phi)
 
     A = max_grading(phi)[:, (ngens(codomain(phi))+1):end]
     #A = vcat(matrix(ZZ, [[1 for i in 1:ncols(A)]]), A)
@@ -120,33 +120,27 @@ function components_of_ideal(phi, d)
     grA = grading_group(graded_dom)
     total_deg_dom = grade(domain(phi), [1 for i in 1:ngens(domain(phi))])[1]
     phi = hom(graded_dom, codomain(phi), [phi(x) for x in gens(domain(phi))]) 
-    poly_dicts = Dict()
-    prev_gens = []
+    gens_dict = Dict()
+    
     
     for i in 1:d
         
         all_mons = [graded_dom(m) for m in monomial_basis(total_deg_dom, [i])]
         all_degs = unique!([degree(m) for m in all_mons])
-        cur_gens = Dict()
 
-        for deg in all_degs
-
-            if i == 1
-
-                prev_gens = []   
-            else
-                prev_gens = reduce(vcat, [poly_dicts[i-1][deg-degree(x)] for x in gens(graded_dom) if (deg-degree(x)) in keys(poly_dicts[i-1])])
-            end
-
-            
-            cur_gens[deg] = component_of_ideal(phi, deg, prev_gens)
+        if length(collect(values(gens_dict))) == 0
+            prev_gens = []
+        else
+            prev_gens = reduce(vcat, collect(values(gens_dict)))
         end
 
-        poly_dicts[i] = cur_gens
-    
+        for deg in all_degs
+            
+            gens_dict[deg] = component_of_kernel(deg, phi, prev_gens)
+        end
     end
 
-    return poly_dicts
+    return gens_dict
 end
 
 
@@ -166,7 +160,7 @@ G = [f1,  f2];
 grA = grading_group(R)
 deg = grA([1,1,1,1,0,0,0,0])
 
-dicts = components_of_ideal(phi, 2)
+dicts = components_of_kernel(2, phi)
 dict = dicts[2]
 reduce(vcat, values(dict))
 

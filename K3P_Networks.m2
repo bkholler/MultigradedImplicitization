@@ -1,5 +1,5 @@
 restart
-needsPackage "MultigradedImplicitization"
+installPackage "MultigradedImplicitization"
 loadPackage("PhylogeneticTrees", FileName => "/Users/bkholler/My Drive/MultigradedImplicitization/PhylogeneticTrees.m2")
 
 sunletParam = (n, M) -> (
@@ -30,3 +30,8 @@ R = qRing(4, M)
 images = sunletParam(4, M);
 phi = map(ring images_0, R, images);
 
+G = time componentsOfKernel(3, phi)
+
+dom = newRing(source phi, Degrees => maxGrading phi);
+B = sub(basis(3, source phi), dom);
+lats = unique apply(flatten entries B, m -> degree m);
