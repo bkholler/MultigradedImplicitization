@@ -89,7 +89,7 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
   (mons, coeffs) := coefficients(mat);
 
   -- find the independent linear relations
-  coeffs = mingens(image sub(coeffs, QQ));
+  coeffs = mingens(image sub(coeffs, coefficientRing(dom)));
 
   -- remove monomials corresponding to pivots
   badMonomials := apply(pivots coeffs, i -> mons_(0,i#0));
@@ -127,7 +127,7 @@ componentOfKernel (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F,
   (mons, coeffs) := coefficients(F(sub(monomialBasis, source F)));
 
   -- find the linear relations among coefficients
-  K := gens ker sub(coeffs,QQ);
+  K := gens ker sub(coeffs, coefficientRing(dom));
 
   newGens := flatten entries (monomialBasis * K);
 
