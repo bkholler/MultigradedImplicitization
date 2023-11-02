@@ -1,11 +1,22 @@
-restart
-installPackage "MultigradedImplicitization"
-loadPackage("PhylogeneticTrees", FileName => "/Users/bkholler/My Drive/MultigradedImplicitization/PhylogeneticTrees.m2")
+-- This loads our new package which contains our implementation of Algorithm 1
+needsPackage "MultigradedImplicitization"
 
+-- This loads the PhylogeneticTrees package for macaulay2
+needsPackage "PhylogeneticTrees"
+
+
+-- n, the number of leaves
+-- M, a model, see PhylogeneticTrees.m2
+-- Outputs the parameterization of a cyclically labeled n-leaf sunlet network with the leaf labeled 1 as the reticulation vertex
+-- The output is given as a list whose entries correspond to the fourier coordinates in lexicographic order on the label sequence
 sunletParam = (n, M) -> (
 
+	-- This makes 
 	indR := leafColorings(n,M);
 	GH := groupHash(M);
+
+	-- This makes the ring of parameters which is the codomain of phi
+	-- 
 	indS := flatten for i from 1 to n list apply(group(M), j -> {i, GH#j});
 	a := symbol a;
 	b := symbol b;
@@ -23,15 +34,10 @@ sunletParam = (n, M) -> (
 	return images
 	)
 
-
-
-M = K3Pmodel
-R = qRing(4, M)
-images = sunletParam(4, M);
+n = 5;
+M = K3Pmodel;
+R = qRing(n, M);
+images = sunletParam(n, M);
 phi = map(ring images_0, R, images);
 
 G = time componentsOfKernel(3, phi)
-
-dom = newRing(source phi, Degrees => maxGrading phi);
-B = sub(basis(3, source phi), dom);
-lats = unique apply(flatten entries B, m -> degree m);
