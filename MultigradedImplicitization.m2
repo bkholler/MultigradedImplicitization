@@ -173,6 +173,12 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   dom := newRing(source F, Degrees => A);
   basisHash := new MutableHashTable;
   gensHash := new MutableHashTable;
+
+  if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
+    print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
+    return;
+  );
+  
   
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do (
