@@ -178,10 +178,16 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
     return;
   );
-  
+
+
+  areThereLinearRelations := false;
   
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do (
+
+
+      if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+      
 
       B := sub(basis(i, source F), dom);
       lats := unique apply(flatten entries B, m -> degree m);
@@ -192,7 +198,11 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
         
         basisHash#deg = basis(deg, dom);
         monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
-        gensHash#deg = if numcols(basisHash#deg) == 1 then {} else componentOfKernel(deg, dom, F, monomialBasis);
+        gensHash#deg = if (numcols(basisHash#deg) == 1) and (i > 1) then {} else componentOfKernel(deg, dom, F, monomialBasis);
+
+        if i == 1 and #(gensHash#deg) > 0 then (
+          areThereLinearRelations = true;
+        );
       );
   );
   
