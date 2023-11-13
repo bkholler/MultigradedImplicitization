@@ -1,3 +1,5 @@
+restart
+
 -- This loads our new package which contains our implementation of Algorithm 1
 needsPackage "MultigradedImplicitization"
 
@@ -34,13 +36,15 @@ sunletParam = (n, M) -> (
 	return images
 	)
 
--- Running this block of code below takes about 25-30 minutes
+-- Running this block of code below takes about 8 minutes
 -- n is the number of leaves on the network and d is the total degree up to which one wants to compute the kernel
 n = 4;
-d = 3;
+d = 2;
 M = K3Pmodel;
 R = qRing(n, M);
 images = sunletParam(n, M);
 phi = map(ring images_0, R, images);
 
 G = time componentsOfKernel(d, phi)
+
+

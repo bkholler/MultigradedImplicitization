@@ -101,6 +101,7 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
 
 trimBasisInDegree (List, Ring, MutableHashTable) := Matrix => (deg, dom, basisHash) -> trimBasisInDegree(deg, dom, {}, basisHash)
 
+
 TEST ///
 A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
 R = QQ[x_1..x_(numcols A)];
@@ -116,12 +117,12 @@ assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x
 ///
 
 
+
 ----------------------------
 ----- componentOfKernel ----
 ----------------------------
 componentOfKernel = method(Options => {PreviousGens => {}});
 componentOfKernel (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F, monomialBasis) -> (
-
 
   -- collect coefficients into a matrix
   (mons, coeffs) := coefficients(F(sub(monomialBasis, source F)));
@@ -153,7 +154,6 @@ componentOfKernel (List, Ring, RingMap) := List => opts -> (deg, dom, F) -> (
   )
 
 
-
 TEST ///
 A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
 R = QQ[x_1..x_(numcols A)];
@@ -161,6 +161,8 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
+
+
 
 -----------------------------
 ----- componentsOfKernel ----
@@ -179,6 +181,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     return;
   );
 
+  -- compute the jacobian of F and substitute in random parameter values in a large finite field
+  J := jacobian matrix F;
+  J = sub(J, apply(gens target F, t -> t => random(ZZ/nextPrime(100000))));
 
   areThereLinearRelations := false;
   
@@ -186,25 +191,40 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   for i in 1..d do (
 
 
-      if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    
+
+    B := sub(basis(i, source F), dom);
+    lats := unique apply(flatten entries B, m -> degree m);
+    
+    G := flatten(values(gensHash));
+
+    for deg in lats do (
       
+      basisHash#deg = basis(deg, dom);
+      S := findSupportIndices(support sub(basisHash#deg, source F), F);
 
-      B := sub(basis(i, source F), dom);
-      lats := unique apply(flatten entries B, m -> degree m);
-      
-      G := flatten(values(gensHash));
+      if (numcols(basisHash#deg) == 1) and (i > 1) then(
 
-      for deg in lats do (
-        
-        basisHash#deg = basis(deg, dom);
-        monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
-        gensHash#deg = if (numcols(basisHash#deg) == 1) and (i > 1) then {} else componentOfKernel(deg, dom, F, monomialBasis);
-
-        if i == 1 and #(gensHash#deg) > 0 then (
-          areThereLinearRelations = true;
+        gensHash#deg = {};
+        continue;
         );
+
+      if rank(J_S) == #S then(
+
+        gensHash#deg = {};
+        continue;
+        );
+
+      monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
+      gensHash#deg = componentOfKernel(deg, dom, F, monomialBasis);
+
+      if i == 1 and #(gensHash#deg) > 0 then (
+        areThereLinearRelations = true;
       );
-  );
+
+      );
+    );
   
   gensHash
   )
@@ -220,6 +240,13 @@ G = new HashTable from G;
 G = delete(null, flatten values(G));
 assert(sub(ideal(G),R) == ker F)
 ///
+
+
+
+findSupportIndices = (supp, F) -> (
+
+  apply(supp, s -> position(gens source F, x -> x == s)) 
+  )
 
 -- Documentation below
 
@@ -256,12 +283,15 @@ Description
     kernel of a polynomial map $F$ is homogeneous and exploiting it to find generators of $\ker(F)$. This package is
     particularly useful for problems from algebraic statistics which often involve highly structured maps {\tt F} which are
     often naturally homogeneous in a larger multigrading than the standard $\mathbb{Z}$-multigrading given by total degree.
+    For more information on this approach see the following:
   Text
     References:
-    [1] INSERT OUR new PAPER\break
-    [2] INSERT Joe's Multigraded Macaulay Dual Spaces Paper
-    [3] INSERT our networks paper
-    [4] Seth Sullivant, Algebraic Statistics, American Mathematical Soc.
+
+    [1] Cummings, J., & Hollering , B. (2023). Computing Implicitizations of Multi-Graded Polynomial Maps. arXiv preprint arXiv:2311..
+
+    [2] Cummings, J., & Hauenstein, J. (2023). Multi-graded Macaulay Dual Spaces. arXiv preprint arXiv:2310.11587.
+
+    [3] Cummings, J., Hollering, B., & Manon, C. (2024). Invariants for level-1 phylogenetic networks under the cavendar-farris-neyman model. Advances in Applied Mathematics, 153, 102633.
 ///
 
 
@@ -449,4 +479,68 @@ Description
 --  todo
 ///
 
+
+doc ///
+Key
+  Grading
+Headline
+  optional argument 
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    The option Grading is a @TO2{Matrix,"matrix"}@ that allows one to specify a specific multigrading in which a polynomial map is homogeneous in.
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  ReturnTargetGrading
+Headline
+  optional argument 
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    The option ReturnTargetGrading is a @TO2{Boolean,"boolean"}@ which can be used with @TO2{maxGrading, "maxGrading"}@. This option is false by default. If it is set to true
+    then the full grading on the elimination ideal of a polynomial map $F$ will be returned instead of only returning the part of the grading which corresponds to the source of $F$.  
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  PreviousGens
+Headline
+  optional argument 
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    The option PreviousGens is a @TO2{List,"list"}@ of polynomials of total degree at most $d-1$ which can be used with @TO2{componentOfKernel, "componentOfKernel"}@
+    to trim the monomial basis for that multidegree. 
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
 
