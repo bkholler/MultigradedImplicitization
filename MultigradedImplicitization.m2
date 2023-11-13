@@ -4,7 +4,7 @@ newPackage(
   Date => "October 26, 2023",
   Authors => {
     {Name => "Joseph Cummings",
-    Email => "jcummin7@nd.edu",
+    Email => "josephcummings03@gmail.com",
     HomePage => "https://sites.google.com/view/josephcummingsuky/home"},
     {Name => "Benjamin Hollering",
     Email => "benhollering@gmail.com",
