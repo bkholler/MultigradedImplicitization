@@ -26,7 +26,7 @@ export {
   "componentOfKernel",
   "componentsOfKernel",
   -- Options
-  "Grading", "PreviousGens", "ReturnTargetGrading"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup"
 }
 
 
@@ -168,7 +168,7 @@ assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x
 ----- componentsOfKernel ----
 -----------------------------///
 --------------
-componentsOfKernel = method(Options => {Grading => null});
+componentsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
@@ -182,9 +182,13 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   );
 
   -- compute the jacobian of F and substitute in random parameter values in a large finite field
-  J := jacobian matrix F;
-  J = sub(J, apply(gens target F, t -> t => random(ZZ/nextPrime(100000))));
 
+  if opts.UseMatroidSpeedup then(
+
+    J := jacobian matrix F;
+    J = sub(J, apply(gens target F, t -> t => random(ZZ/nextPrime(100000))));
+    );
+  
   areThereLinearRelations := false;
   
   -- assumes homogeneous with normal Z-grading
@@ -210,10 +214,14 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
         continue;
         );
 
-      if rank(J_S) == #S then(
+      if opts.UseMatroidSpeedup then(
 
-        gensHash#deg = {};
-        continue;
+
+        if rank(J_S) == #S then(
+
+          gensHash#deg = {};
+          continue;
+          );
         );
 
       monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);

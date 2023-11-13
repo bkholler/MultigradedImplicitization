@@ -15,7 +15,7 @@ sunletParam = (n, M) -> (
 
 	-- This makes 
 	indR := leafColorings(n,M);
-	GH := groupHash(M);
+	GH := new MutableHashTable from apply(group(M), toList(0..#group(M)-1), (i, j) -> i => j);
 
 	-- This makes the ring of parameters which is the codomain of phi
 	-- the "a" parameters correspond to the leaves of the network while the "b" parameters correspond to the internal edges
@@ -39,12 +39,11 @@ sunletParam = (n, M) -> (
 -- Running this block of code below takes about 8 minutes
 -- n is the number of leaves on the network and d is the total degree up to which one wants to compute the kernel
 n = 4;
-d = 2;
+d = 3;
 M = K3Pmodel;
 R = qRing(n, M);
 images = sunletParam(n, M);
 phi = map(ring images_0, R, images);
 
 G = time componentsOfKernel(d, phi)
-
 
