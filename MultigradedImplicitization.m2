@@ -1,6 +1,6 @@
 newPackage(
   "MultigradedImplicitization",
-  Version => "0.1",
+  Version => "1.0",
   Date => "October 26, 2023",
   Authors => {
     {Name => "Joseph Cummings",
@@ -70,6 +70,8 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
 
   -- otherwise, we shift G in all possible ways to land in R_deg
 
+  G = apply(G, g -> sub(g, dom));
+
   L := apply(G, g -> (
           checkDegree := deg - degree(g);
           if basisHash#?checkDegree then (
@@ -109,10 +111,9 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-assert(trimBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
 B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
-scan(lats, deg -> basisHash#deg = trimBasisInDegree(deg, dom, {}, basisHash));
+scan(lats, deg -> basisHash#deg = basis(deg, dom));
 assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
 ///
 
@@ -161,13 +162,12 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
-
+///
 
 
 -----------------------------
 ----- componentsOfKernel ----
------------------------------///
---------------
+-----------------------------
 componentsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
@@ -295,7 +295,7 @@ Description
   Text
     References:
 
-    [1] Cummings, J., & Hollering , B. (2023). Computing Implicitizations of Multi-Graded Polynomial Maps. arXiv preprint arXiv:2311..
+    [1] Cummings, J., & Hollering , B. (2023). Computing Implicitizations of Multi-Graded Polynomial Maps. arXiv preprint arXiv:2311.07678.
 
     [2] Cummings, J., & Hauenstein, J. (2023). Multi-graded Macaulay Dual Spaces. arXiv preprint arXiv:2310.11587.
 
@@ -394,6 +394,7 @@ Key
   componentsOfKernel
   (componentsOfKernel, Number, RingMap)
   [componentsOfKernel, Grading]
+  [componentsOfKernel, UseMatroidSpeedup]
 Headline
   Finds all minimal generators up to a given total degree in the kernel of a ring map 
 Usage
@@ -404,6 +405,8 @@ Inputs
   F:RingMap
   Grading => Matrix
     a matrix whose columns give a homogeneous multigrading on $\ker(F)$
+  UseMatroidSpeedup => Boolean
+    if true, then the jacobian of $F$ is used to detect if it is possible for kernel element to exist in a homogeneous component. If the jacobian does not drop rank, then that component cannot contain kernel generators and is skipped.  
 Outputs
   :MutableHashTable
     A mutable hashtable whose keys correspond to all homogeneous components of $\ker(F)$ and values correspond to generators in $\ker(F)$ with those components
@@ -501,6 +504,29 @@ Headline
 Description
   Text
     The option Grading is a @TO2{Matrix,"matrix"}@ that allows one to specify a specific multigrading in which a polynomial map is homogeneous in.
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  UseMatroidSpeedup
+Headline
+  optional argument 
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    The option UseMatroidSpeedup is a boolean that allows one to specify if the matroid given by the jacobian should be used to automatically skip components. This option is true by default.
+    If it is set to false, then every homogeneous component will be checked, even if it is impossible for a polynomial with the necessary support to belong to the kernel.
+    For very small examples, it may be slightly faster to set this to false. 
 --
 --  CannedExample
 --Subnodes
