@@ -25,8 +25,10 @@ export {
   "trimBasisInDegree",
   "componentOfKernel",
   "componentsOfKernel",
+  "probCompOfKernel",
+  "probCompsOfKernel",
   -- Options
-  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup", "CoeffField"
 }
 
 
@@ -248,6 +250,144 @@ G = new HashTable from G;
 G = delete(null, flatten values(G));
 assert(sub(ideal(G),R) == ker F)
 ///
+
+
+----------------------------
+----- probCompOfKernel ----
+----------------------------
+probCompOfKernel = method(Options => {PreviousGens => {}});
+probCompOfKernel (List, Ring, List, Matrix) := List => opts -> (deg, dom, samplePts, monomialBasis) -> (
+
+  -- collect coefficients into a matrix
+  evalBasis := matrix for i from 0 to numcols(monomialBasis)-1 list flatten entries sub(monomialBasis, samplePts_i);
+
+  -- find the linear relations among coefficients
+  K := gens ker evalBasis;
+
+  newGens := flatten entries (monomialBasis * K);
+
+  
+  newGens
+  )
+
+
+-----------------------------
+----- probCompsOfKernel ----
+-----------------------------
+probCompsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true, CoeffField => null});
+probCompsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
+
+  print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+
+  A := if opts.Grading === null then maxGrading(F) else opts.Grading;
+  KK := if opts.CoeffField == null then ZZ/nextPrime(1000000) else opts.CoeffField;
+  dom := newRing(source F, Degrees => A);
+  basisHash := new MutableHashTable;
+  gensHash := new MutableHashTable;
+
+  if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
+    print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
+    return;
+  );
+
+  -- compute the jacobian of F and substitute in random parameter values in a large finite field
+
+  if opts.UseMatroidSpeedup then(
+
+    J := jacobian matrix F;
+    J = sub(J, apply(gens target F, t -> t => random(KK)));
+    );
+  
+  areThereLinearRelations := false;
+
+  samplePts := {};
+  
+  -- assumes homogeneous with normal Z-grading
+  for i in 1..d do (
+
+
+    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    
+    print(concatenate("computing total degree: ", toString(i)));
+
+    B := sub(basis(i, source F), dom);
+    lats := unique apply(flatten entries B, m -> degree m);
+    scan(lats, deg -> basisHash#deg = basis(deg, dom));
+    maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
+
+    print(concatenate("number of monomials = ", toString(numcols(B))));
+    print(concatenate("number of distinct multidegrees = ", toString(#lats)));
+    
+    -- make list of current generators
+    G := flatten(values(gensHash));
+
+    print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
+
+
+    -- sample additional points from the variety if necessary
+    if #samplePts <  maxBasisSize then(
+
+        newPts := for l from 0 to (maxBasisSize - #samplePts - 1) list(
+
+          paramVals := apply(gens target F, t -> t => random(KK));
+	        
+          apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
+        );
+
+        samplePts = samplePts | newPts;
+      );
+
+    for deg in lats do (
+      
+      S := findSupportIndices(support sub(basisHash#deg, source F), F);
+
+      if (numcols(basisHash#deg) == 1) and (i > 1) then(
+
+        gensHash#deg = {};
+        continue;
+        );
+
+      if opts.UseMatroidSpeedup then(
+
+
+        if rank(J_S) == #S then(
+
+          gensHash#deg = {};
+          continue;
+          );
+        );
+
+      
+
+      monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
+      gensHash#deg = probCompOfKernel(deg, dom, samplePts, monomialBasis);
+
+      if i == 1 and #(gensHash#deg) > 0 then (
+        areThereLinearRelations = true;
+      );
+
+      );
+    );
+  
+  gensHash
+  )
+
+TEST ///
+A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
+R = QQ[x_1..x_(numcols A)];
+S = QQ[t_1..t_(numrows A)];
+F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+dom = newRing(R, Degrees => A);
+G = componentsOfKernel(2,F);
+G = new HashTable from G;
+G = delete(null, flatten values(G));
+assert(sub(ideal(G),R) == ker F)
+///
+
+
+
+
+
 
 
 
