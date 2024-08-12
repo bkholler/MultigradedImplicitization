@@ -47,3 +47,4 @@ phi = map(ring images_0, R, images);
 
 G = time componentsOfKernel(d, phi)
 
+H = flatten values G

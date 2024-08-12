@@ -187,7 +187,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
     J := jacobian matrix F;
     J = sub(J, apply(gens target F, t -> t => random(ZZ/nextPrime(100000))));
-    );
+  );
   
   areThereLinearRelations := false;
   
@@ -212,7 +212,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
         gensHash#deg = {};
         continue;
-        );
+      );
 
       if opts.UseMatroidSpeedup then(
 

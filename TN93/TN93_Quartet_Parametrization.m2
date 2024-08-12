@@ -41,7 +41,7 @@ F = map(R,RxWithoutLinearInvariants,nonZeroPBar)
 
 
 
-G = componentsOfKernel(2,F, Grading => D, UseMatroidSpeedup => false)
+G = componentsOfKernel(2, F, Grading => D, UseMatroidSpeedup => false)
 G = flatten values G;
 G = G / (g -> sub(g, RxWithoutLinearInvariants))
 G / F
@@ -56,3 +56,8 @@ for g in G do (
 
 fileName << close;
 
+H = componentsOfKernel(3, f)
+
+fileName = "TN93_quartet_cubics" << "";
+scan(H, h -> fileName << h << endl)
+fileName << close
