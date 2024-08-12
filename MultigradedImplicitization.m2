@@ -1,7 +1,7 @@
 newPackage(
   "MultigradedImplicitization",
-  Version => "1.0",
-  Date => "October 26, 2023",
+  Version => "1.1",
+  Date => "August 11, 2024",
   Authors => {
     {Name => "Joseph Cummings",
     Email => "josephcummings03@gmail.com",
@@ -23,12 +23,11 @@ export {
   -- Methods
   "maxGrading",
   "trimBasisInDegree",
-  "componentOfKernel",
+  "computeComponent",
+  "interpolateComponent",
   "componentsOfKernel",
-  "probCompOfKernel",
-  "probCompsOfKernel",
   -- Options
-  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup", "CoeffField"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing", "Verbose"
 }
 
 
@@ -47,7 +46,7 @@ maxGrading RingMap := Matrix => opts -> F -> (
   elimIdeal := ideal(sub(X, elimRing) - sub(F(X), elimRing));
   
   if opts.ReturnTargetGrading then (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))) else (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
-  )
+)
 
 
 TEST ///
@@ -101,7 +100,8 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
   scan(badMonomials, m -> monomialBasis = delete(m, monomialBasis));
 
   matrix{monomialBasis}
-  )
+)
+
 
 trimBasisInDegree (List, Ring, MutableHashTable) := Matrix => (deg, dom, basisHash) -> trimBasisInDegree(deg, dom, {}, basisHash)
 
@@ -122,10 +122,10 @@ assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x
 
 
 ----------------------------
------ componentOfKernel ----
+----- computeComponent ----
 ----------------------------
-componentOfKernel = method(Options => {PreviousGens => {}});
-componentOfKernel (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F, monomialBasis) -> (
+computeComponent = method(Options => {PreviousGens => {}});
+computeComponent (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F, monomialBasis) -> (
 
   -- collect coefficients into a matrix
   (mons, coeffs) := coefficients(F(sub(monomialBasis, source F)));
@@ -135,26 +135,24 @@ componentOfKernel (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F,
 
   newGens := flatten entries (monomialBasis * K);
 
-  
   newGens
-  )
+)
 
 
-componentOfKernel (List, Ring, RingMap, MutableHashTable) := List => opts ->  (deg, dom, F, basisHash) -> (
+computeComponent (List, Ring, RingMap, MutableHashTable) := List => opts ->  (deg, dom, F, basisHash) -> (
 
-      monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
+  monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
 
-      componentOfKernel(deg, dom, F, monomialBasis)   
-  )
+  computeComponent(deg, dom, F, monomialBasis)   
+)
 
 
-componentOfKernel (List, Ring, RingMap) := List => opts -> (deg, dom, F) -> (
-
+computeComponent (List, Ring, RingMap) := List => opts -> (deg, dom, F) -> (
 
   monomialBasis := basis(deg, dom);
 
-  componentOfKernel(deg, dom, F, monomialBasis)
-  )
+  computeComponent(deg, dom, F, monomialBasis)
+)
 
 
 TEST ///
@@ -163,124 +161,74 @@ R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
+assert(computeComponent({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
 ///
 
 
------------------------------
------ componentsOfKernel ----
------------------------------
-componentsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true});
-componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
-  A := if opts.Grading === null then maxGrading(F) else opts.Grading;
-  dom := newRing(source F, Degrees => A);
-  basisHash := new MutableHashTable;
-  gensHash := new MutableHashTable;
-
-  if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
-    print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
-    return;
-  );
-
-  -- compute the jacobian of F and substitute in random parameter values in a large finite field
-
-  if opts.UseMatroidSpeedup then(
-
-    J := jacobian matrix F;
-    J = sub(J, apply(gens target F, t -> t => random(ZZ/nextPrime(100000))));
-    );
-  
-  areThereLinearRelations := false;
-  
-  -- assumes homogeneous with normal Z-grading
-  for i in 1..d do (
-
-
-    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
-    
-
-    B := sub(basis(i, source F), dom);
-    lats := unique apply(flatten entries B, m -> degree m);
-    
-    G := flatten(values(gensHash));
-
-    for deg in lats do (
-      
-      basisHash#deg = basis(deg, dom);
-      S := findSupportIndices(support sub(basisHash#deg, source F), F);
-
-      if (numcols(basisHash#deg) == 1) and (i > 1) then(
-
-        gensHash#deg = {};
-        continue;
-        );
-
-      if opts.UseMatroidSpeedup then(
-
-
-        if rank(J_S) == #S then(
-
-          gensHash#deg = {};
-          continue;
-          );
-        );
-
-      monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
-      gensHash#deg = componentOfKernel(deg, dom, F, monomialBasis);
-
-      if i == 1 and #(gensHash#deg) > 0 then (
-        areThereLinearRelations = true;
-      );
-
-      );
-    );
-  
-  gensHash
-  )
-
-TEST ///
-A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
-R = QQ[x_1..x_(numcols A)];
-S = QQ[t_1..t_(numrows A)];
-F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
-dom = newRing(R, Degrees => A);
-G = componentsOfKernel(2,F);
-G = new HashTable from G;
-G = delete(null, flatten values(G));
-assert(sub(ideal(G),R) == ker F)
-///
-
-
-----------------------------
------ probCompOfKernel ----
-----------------------------
-probCompOfKernel = method(Options => {PreviousGens => {}});
-probCompOfKernel (List, Ring, List, Matrix) := List => opts -> (deg, dom, samplePts, monomialBasis) -> (
+-------------------------------
+----- interpolateComponent ----
+-------------------------------
+interpolateComponent = method(Options => {PreviousGens => {}});
+interpolateComponent (List, Matrix) := List => opts -> (samplePoints, monomialBasis) -> (
 
   -- collect coefficients into a matrix
-  evalBasis := matrix for i from 0 to numcols(monomialBasis)-1 list flatten entries sub(monomialBasis, samplePts_i);
+  evalBasis := matrix for i from 0 to numcols(monomialBasis)-1 list flatten entries sub(monomialBasis, samplePoints_i);
 
   -- find the linear relations among coefficients
   K := gens ker evalBasis;
 
   newGens := flatten entries (monomialBasis * K);
 
-  
   newGens
-  )
+)
+
+
+interpolateComponent (List, Ring, List, MutableHashTable) := List => opts ->  (deg, dom, samplePoints, basisHash) -> (
+
+  monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
+
+  interpolateComponent(samplePoints, monomialBasis)   
+)
+
+
+interpolateComponent (List, Ring, RingMap) := List => opts -> (deg, dom, F) -> (
+
+  monomialBasis := basis(deg, dom);
+  KK := coefficientRing(dom);
+
+  samplePoints := for l from 0 to numcols(monomialBasis)-1 list(
+
+    paramVals := apply(gens target F, t -> t => random(KK));
+
+    apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
+  );
+
+  interpolateComponent(samplePoints, monomialBasis)
+)
+
+
+TEST ///
+A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
+R = QQ[x_1..x_(numcols A)];
+S = QQ[t_1..t_(numrows A)];
+F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+dom = newRing(R, Degrees => A);
+assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
+///
+
 
 
 -----------------------------
------ probCompsOfKernel ----
+----- componentsOfKernel ----
 -----------------------------
-probCompsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true, CoeffField => null});
-probCompsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
+componentsOfKernel = method(Options => {Grading => null, UseMatroid => true, UseInterpolation => false, CoefficientRing => ZZ/32003, Verbose => true});
+componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
   print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
 
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
-  KK := if opts.CoeffField == null then ZZ/nextPrime(1000000) else opts.CoeffField;
+  KK := opts.CoefficientRing;
   dom := newRing(source F, Degrees => A);
   basisHash := new MutableHashTable;
   gensHash := new MutableHashTable;
@@ -291,52 +239,51 @@ probCompsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   );
 
   -- compute the jacobian of F and substitute in random parameter values in a large finite field
-
-  if opts.UseMatroidSpeedup then(
+  if opts.UseMatroid then(
 
     J := jacobian matrix F;
     J = sub(J, apply(gens target F, t -> t => random(KK)));
-    );
+  );
   
+  -- initialize list of sample points and boolean for tracking if there are linear relations in the kernel
   areThereLinearRelations := false;
-
-  samplePts := {};
+  samplePoints := {};
   
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do (
 
 
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
-    
-    print(concatenate("computing total degree: ", toString(i)));
+    if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
+    -- compute monomial bases of all homogeneous components in total degree i
     B := sub(basis(i, source F), dom);
     lats := unique apply(flatten entries B, m -> degree m);
     scan(lats, deg -> basisHash#deg = basis(deg, dom));
-    maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
-
-    print(concatenate("number of monomials = ", toString(numcols(B))));
-    print(concatenate("number of distinct multidegrees = ", toString(#lats)));
+    if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
+    
+    if opts.Verbose then print(concatenate("number of monomials = ", toString(numcols(B))));
+    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#lats)));
     
     -- make list of current generators
     G := flatten(values(gensHash));
 
-    print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
-
+    if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
 
     -- sample additional points from the variety if necessary
-    if #samplePts <  maxBasisSize then(
+    if opts.UseInterpolation and #samplePoints <  maxBasisSize then(
 
-        newPts := for l from 0 to (maxBasisSize - #samplePts - 1) list(
+      newPoints := for l from 0 to (maxBasisSize - #samplePoints - 1) list(
 
-          paramVals := apply(gens target F, t -> t => random(KK));
-	        
-          apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
-        );
-
-        samplePts = samplePts | newPts;
+        paramVals := apply(gens target F, t -> t => random(KK));
+        
+        apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
       );
 
+      samplePoints = samplePoints | newPoints;
+    );
+
+    -- this loop can be done completely in parallel
     for deg in lats do (
       
       S := findSupportIndices(support sub(basisHash#deg, source F), F);
@@ -345,33 +292,37 @@ probCompsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
         gensHash#deg = {};
         continue;
-        );
+      );
 
-      if opts.UseMatroidSpeedup then(
-
+      if opts.UseMatroid then(
 
         if rank(J_S) == #S then(
 
           gensHash#deg = {};
           continue;
-          );
         );
+      );
 
       
-
+      -- trim the current monomial basis so we only compute minimal generators
       monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
-      gensHash#deg = probCompOfKernel(deg, dom, samplePts, monomialBasis);
 
+      -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
+      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, monomialBasis) else computeComponent(deg, dom, F, monomialBasis);
+
+      -- check if there are linear relations. if so then one can reduce the number of variables
       if i == 1 and #(gensHash#deg) > 0 then (
         areThereLinearRelations = true;
       );
 
-      );
     );
+  );
   
   gensHash
-  )
+)
 
+
+-- symbolic test 
 TEST ///
 A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
 R = QQ[x_1..x_(numcols A)];
@@ -385,21 +336,36 @@ assert(sub(ideal(G),R) == ker F)
 ///
 
 
+-- probabilistic test
+TEST ///
+A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
+KK = ZZ/nextPrime(100000)
+R = KK[x_1..x_(numcols A)];
+S = KK[t_1..t_(numrows A)];
+F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+dom = newRing(R, Degrees => A);
+G = componentsOfKernel(2,F, UseInterpolation => true, CoefficientRing => KK);
+G = new HashTable from G;
+G = delete(null, flatten values(G));
+assert(sub(ideal(G),R) == ker F)
+///
 
 
 
-
-
-
+-----------------------------
+----- findSupportIndices ----
+-----------------------------
 findSupportIndices = (supp, F) -> (
 
   apply(supp, s -> position(gens source F, x -> x == s)) 
-  )
+)
 
--- Documentation below
 
+
+-----------------------------
+----- Documentation ---------
+-----------------------------
 beginDocumentation()
-
 -- template for function documentation
 --doc ///
 --Key
@@ -429,7 +395,7 @@ Description
   Text
     The MultigradedImplicitization package provides methods for computing the maximal $\mathbb{Z}^k$ grading in which the 
     kernel of a polynomial map $F$ is homogeneous and exploiting it to find generators of $\ker(F)$. This package is
-    particularly useful for problems from algebraic statistics which often involve highly structured maps {\tt F} which are
+    particularly useful for problems from algebraic statistics which often involve highly structured maps $F$ which are
     often naturally homogeneous in a larger multigrading than the standard $\mathbb{Z}$-multigrading given by total degree.
     For more information on this approach see the following:
   Text
@@ -447,7 +413,6 @@ doc ///
 Key
   maxGrading
   (maxGrading, RingMap)
-  [maxGrading, ReturnTargetGrading]
 Headline
   computes the maximal $\mathbb{Z}^k$ grading such that $\ker(F)$ is homogeneous
 Usage
@@ -510,7 +475,7 @@ Description
   Text
     Computes a monomial basis for the homogeneous component of degree {\tt deg} of the graded ring {\tt dom} which is the source of a ring map $F$. 
     Monomials which correspond to previously computed relations which are in {\tt G} are automatically removed since they will not yield new generators
-    in $\ker(F)$ when applying @TO2{componentOfKernel, "componentOfKernel"}@ to this basis.  
+    in $\ker(F)$ when applying @TO2{computeComponent, "computeComponent"}@ to this basis.  
   Example
     A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
     R = QQ[x_1..x_(numcols A)];
@@ -533,8 +498,6 @@ doc ///
 Key
   componentsOfKernel
   (componentsOfKernel, Number, RingMap)
-  [componentsOfKernel, Grading]
-  [componentsOfKernel, UseMatroidSpeedup]
 Headline
   Finds all minimal generators up to a given total degree in the kernel of a ring map 
 Usage
@@ -545,8 +508,14 @@ Inputs
   F:RingMap
   Grading => Matrix
     a matrix whose columns give a homogeneous multigrading on $\ker(F)$
-  UseMatroidSpeedup => Boolean
-    if true, then the jacobian of $F$ is used to detect if it is possible for kernel element to exist in a homogeneous component. If the jacobian does not drop rank, then that component cannot contain kernel generators and is skipped.  
+  UseMatroid => Boolean
+    use the jacobian of $F$ to detect if a homogeneous component may contain polynomials in the kernel. 
+  UseInterpolation => Boolean
+    use interpolation instead of symbolically computing polynomials in each homogeneous component.
+  CoefficientRing => Ring
+    the ground field which is used to sample points from $V(\ker(F))$
+  Verbose => Boolean
+    display detailed output
 Outputs
   :MutableHashTable
     A mutable hashtable whose keys correspond to all homogeneous components of $\ker(F)$ and values correspond to generators in $\ker(F)$ with those components
@@ -563,31 +532,26 @@ Description
     peek componentsOfKernel(2, F)
   Text
     If a grading in which $\ker(F)$ is homogeneous is already known or a specific grading is desired then the option {\tt Grading} can be used to specify this.
-    In this case the columns of the matrix {\tt Grading} are automatically used to grade the source of $F$. 
---  Code
---    todo
---  Pre
---    todo
-
---  todo
---SeeAlso
---  todo
+    In this case the columns of the matrix {\tt Grading} are automatically used to grade the source of $F$.
+Caveat
+  If the option UseInterpolation is set to true then @TO2{interpolateComponent, "interpolateComponent"}@ is used to compute polynomials in each homogeneous component
+  instead of @TO2{computeComponent, "computeComponent"}@ which is the default. In this case, the resulting polynomials are no longer guaranteed to be in $\ker(F)$ but instead belong to the ideal with high probability.
+  Setting this option to true will often significantly speed up computation, especially when computing high degree polynomials in the kernel of dense polynomial maps.
 ///
 
 
 doc ///
 Key
-  componentOfKernel
-  (componentOfKernel, List, Ring, RingMap, Matrix)
-  (componentOfKernel, List, Ring, RingMap, MutableHashTable)
-  (componentOfKernel, List, Ring, RingMap)
-  [componentOfKernel, PreviousGens]
+  computeComponent
+  (computeComponent, List, Ring, RingMap, Matrix)
+  (computeComponent, List, Ring, RingMap, MutableHashTable)
+  (computeComponent, List, Ring, RingMap)
 Headline
-  Finds all minimal generators of a given degree in the kernel of a ring map 
+  Finds all minimal generators of a given multidegree in the kernel of a ring map 
 Usage
-  componentOfKernel(deg, dom, F, M)
-  componentOfKernel(deg, dom, F, B)
-  componentOfKernel(deg, dom, F)
+  computeComponent(deg, dom, F, M)
+  computeComponent(deg, dom, F, B)
+  computeComponent(deg, dom, F)
 Inputs
   deg:List
     the degree of the homogeneous component to compute
@@ -615,27 +579,70 @@ Description
     S = QQ[t_1..t_2, s_1..s_3];
     F = map(S, R, {t_1*s_1, t_1*s_2, t_1*s_3, t_2*s_1, t_2*s_2, t_2*s_3})
     dom = newRing(R, Degrees => A);
-    componentOfKernel({1,1,0,1,1}, dom, F)
+    computeComponent({1,1,0,1,1}, dom, F)
   Text
       The option {\tt PreviousGens} can be used to specify a set of previously computed generators. 
       In the case that a monomial basis or hash table of monomial bases is not given then @TO2{trimBasisInDegree, "trimBasisInDegree"}@
       will be used to compute a monomial basis and {\tt PreviousGens} will be used to trim this basis. 
---  Code
---    todo
---  Pre
---    todo
+///
 
---  todo
---SeeAlso
---  todo
+
+doc ///
+Key
+  interpolateComponent
+  (interpolateComponent, List, Matrix)
+  (interpolateComponent, List, Ring, List, MutableHashTable)
+  (interpolateComponent, List, Ring, RingMap)
+Headline
+  Finds all minimal generators of a given multidegree in the kernel of a ring map by sampling points in the corresponding variety and then interpolating. 
+Usage
+  interpolateComponent(P, M)
+  interpolateComponent(deg, dom, F, B)
+  interpolateComponent(deg, dom, F)
+Inputs
+  deg:List
+    the degree of the homogeneous component to compute
+  dom:Ring
+    a graded ring which is the source of a homogeneous ring map $F$
+  F:RingMap
+    a map whose kernel is homogeneous in the grading of {\tt dom}
+  M:Matrix
+    a monomial basis for the homogeneous component of {\tt deg} with degree {\tt deg}
+  P:List
+    a list of options which correspond to points from $V(\ker(F))$ which are used to interpolate the monomials in {\tt M}
+  B:MutableHashTable
+    a mutable hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
+  PreviousGens => List
+    a list of generators of the kernel which have lower total degree
+Outputs
+  :Matrix
+    A list of minimal generators for $\ker(F)$ which are in the homogeneous component of degree {\tt deg}
+Description
+  Text
+    Computes all minimal generators of $\ker(F)$ which are in the homogeneous component of degree {\tt deg}
+  Example
+    A = matrix {{1,1,1,0,0,0}, {0,0,0,1,1,1}, {1,0,0,1,0,0}, {0,1,0,0,1,0}, {0,0,1,0,0,1}}
+    R = QQ[x_(1,1)..x_(2,3)];
+    S = QQ[t_1..t_2, s_1..s_3];
+    F = map(S, R, {t_1*s_1, t_1*s_2, t_1*s_3, t_2*s_1, t_2*s_2, t_2*s_3})
+    dom = newRing(R, Degrees => A);
+    interpolateComponent({1,1,0,1,1}, dom, F)
+  Text
+    The option {\tt PreviousGens} can be used to specify a set of previously computed generators. 
+    In the case that a monomial basis or hash table of monomial bases is not given then @TO2{trimBasisInDegree, "trimBasisInDegree"}@
+    will be used to compute a monomial basis and {\tt PreviousGens} will be used to trim this basis. 
+Caveat
+  The polynomials returned by this method belong to $\ker(F)$ with high probability but may not actually belong to the kernel.
+  Further verification is recommended to ensure that the resulting polynomials actually belong to $\ker(F)$.
 ///
 
 
 doc ///
 Key
   Grading
+  [componentsOfKernel, Grading]
 Headline
-  optional argument 
+  a matrix which gives a homogeneous multigrading on a polynomial map
 --Usage
 --Inputs
 --Outputs
@@ -654,9 +661,10 @@ Description
 
 doc ///
 Key
-  UseMatroidSpeedup
+  UseMatroid
+  [componentsOfKernel, UseMatroid]
 Headline
-  optional argument 
+  use the algebraic matroid of a polynomial map represented by the jacobian to skip computation of irrelevant components of the kernel
 --Usage
 --Inputs
 --Outputs
@@ -664,7 +672,7 @@ Headline
 --  Item
 Description
   Text
-    The option UseMatroidSpeedup is a boolean that allows one to specify if the matroid given by the jacobian should be used to automatically skip components. This option is true by default.
+    The option UseMatroid is a boolean that allows one to specify if the matroid given by the jacobian should be used to automatically skip components. This option is true by default.
     If it is set to false, then every homogeneous component will be checked, even if it is impossible for a polynomial with the necessary support to belong to the kernel.
     For very small examples, it may be slightly faster to set this to false. 
 --
@@ -678,8 +686,9 @@ Description
 doc ///
 Key
   ReturnTargetGrading
+  [maxGrading, ReturnTargetGrading]
 Headline
-  optional argument 
+  return the grading on the target ring of a polynomial map which induces a grading on the kernel
 --Usage
 --Inputs
 --Outputs
@@ -700,8 +709,10 @@ Description
 doc ///
 Key
   PreviousGens
+  [computeComponent, PreviousGens]
+  [interpolateComponent, PreviousGens]
 Headline
-  optional argument 
+  a list previously computed generators of the kernel of a map
 --Usage
 --Inputs
 --Outputs
@@ -709,7 +720,7 @@ Headline
 --  Item
 Description
   Text
-    The option PreviousGens is a @TO2{List,"list"}@ of polynomials of total degree at most $d-1$ which can be used with @TO2{componentOfKernel, "componentOfKernel"}@
+    The option PreviousGens is a @TO2{List,"list"}@ of polynomials of total degree at most $d-1$ which can be used with @TO2{computeComponent, "computeComponent"}@
     to trim the monomial basis for that multidegree. 
 --
 --  CannedExample
@@ -718,3 +729,72 @@ Description
 --SeeAlso
 ///
 
+
+doc ///
+Key
+  UseInterpolation
+  [componentsOfKernel, UseInterpolation]
+Headline
+  use interpolation to find polynomials in the kernel of a map
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    This option is a boolean that allows one to specify if interpolation should be used to find polynomials in each homogeneous component of $\ker(F)$. 
+    This option is false by default. If it is set to false then @TO2{computeComponent, "computeComponent"}@ will be used to find polynomials in each homogeneous component which is purely symbolic. 
+    If it is set to true then @TO2{interpolateComponent, "interpolateComponent"}@ will be used to to find polynomials in each homogeneous component which are in the kernel with high probability. 
+    Setting this option to true will often significantly speed up the computation for large polynomial maps, especially in higher degree components. 
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  CoefficientRing
+  [componentsOfKernel, CoefficientRing]
+Headline
+  ground field over which to sample points from during interpolation
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    This option can be used to specify the ground field over which to sample points from the image of a polynomial map. 
+    The default value is {\tt ZZ/32003}.
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  Verbose
+  [componentsOfKernel, Verbose]
+Headline
+  display detailed output during computation
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    This option is a boolean that determines if detailed output should be displayed during the kernel computation. This option is true by default.
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
