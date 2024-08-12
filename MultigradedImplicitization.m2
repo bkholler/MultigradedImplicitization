@@ -1,6 +1,6 @@
 newPackage(
   "MultigradedImplicitization",
-  Version => "0.1",
+  Version => "1.0",
   Date => "October 26, 2023",
   Authors => {
     {Name => "Joseph Cummings",
@@ -25,8 +25,10 @@ export {
   "trimBasisInDegree",
   "componentOfKernel",
   "componentsOfKernel",
+  "probCompOfKernel",
+  "probCompsOfKernel",
   -- Options
-  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroidSpeedup", "CoeffField"
 }
 
 
@@ -70,6 +72,8 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
 
   -- otherwise, we shift G in all possible ways to land in R_deg
 
+  G = apply(G, g -> sub(g, dom));
+
   L := apply(G, g -> (
           checkDegree := deg - degree(g);
           if basisHash#?checkDegree then (
@@ -109,10 +113,9 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
-assert(trimBasisInDegree({1,1,0,1,1}, dom, {}, basisHash) == matrix {{x_1*x_5, x_2*x_4}});
 B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
-scan(lats, deg -> basisHash#deg = trimBasisInDegree(deg, dom, {}, basisHash));
+scan(lats, deg -> basisHash#deg = basis(deg, dom));
 assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x_3*x_5-x_2*x_6}, basisHash) == matrix {{x_2*x_3*x_4}});
 ///
 
@@ -161,13 +164,12 @@ S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
 assert(componentOfKernel({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
-
+///
 
 
 -----------------------------
 ----- componentsOfKernel ----
------------------------------///
---------------
+-----------------------------
 componentsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
@@ -250,6 +252,144 @@ assert(sub(ideal(G),R) == ker F)
 ///
 
 
+----------------------------
+----- probCompOfKernel ----
+----------------------------
+probCompOfKernel = method(Options => {PreviousGens => {}});
+probCompOfKernel (List, Ring, List, Matrix) := List => opts -> (deg, dom, samplePts, monomialBasis) -> (
+
+  -- collect coefficients into a matrix
+  evalBasis := matrix for i from 0 to numcols(monomialBasis)-1 list flatten entries sub(monomialBasis, samplePts_i);
+
+  -- find the linear relations among coefficients
+  K := gens ker evalBasis;
+
+  newGens := flatten entries (monomialBasis * K);
+
+  
+  newGens
+  )
+
+
+-----------------------------
+----- probCompsOfKernel ----
+-----------------------------
+probCompsOfKernel = method(Options => {Grading => null, UseMatroidSpeedup => true, CoeffField => null});
+probCompsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
+
+  print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+
+  A := if opts.Grading === null then maxGrading(F) else opts.Grading;
+  KK := if opts.CoeffField == null then ZZ/nextPrime(1000000) else opts.CoeffField;
+  dom := newRing(source F, Degrees => A);
+  basisHash := new MutableHashTable;
+  gensHash := new MutableHashTable;
+
+  if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
+    print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
+    return;
+  );
+
+  -- compute the jacobian of F and substitute in random parameter values in a large finite field
+
+  if opts.UseMatroidSpeedup then(
+
+    J := jacobian matrix F;
+    J = sub(J, apply(gens target F, t -> t => random(KK)));
+    );
+  
+  areThereLinearRelations := false;
+
+  samplePts := {};
+  
+  -- assumes homogeneous with normal Z-grading
+  for i in 1..d do (
+
+
+    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    
+    print(concatenate("computing total degree: ", toString(i)));
+
+    B := sub(basis(i, source F), dom);
+    lats := unique apply(flatten entries B, m -> degree m);
+    scan(lats, deg -> basisHash#deg = basis(deg, dom));
+    maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
+
+    print(concatenate("number of monomials = ", toString(numcols(B))));
+    print(concatenate("number of distinct multidegrees = ", toString(#lats)));
+    
+    -- make list of current generators
+    G := flatten(values(gensHash));
+
+    print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
+
+
+    -- sample additional points from the variety if necessary
+    if #samplePts <  maxBasisSize then(
+
+        newPts := for l from 0 to (maxBasisSize - #samplePts - 1) list(
+
+          paramVals := apply(gens target F, t -> t => random(KK));
+	        
+          apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
+        );
+
+        samplePts = samplePts | newPts;
+      );
+
+    for deg in lats do (
+      
+      S := findSupportIndices(support sub(basisHash#deg, source F), F);
+
+      if (numcols(basisHash#deg) == 1) and (i > 1) then(
+
+        gensHash#deg = {};
+        continue;
+        );
+
+      if opts.UseMatroidSpeedup then(
+
+
+        if rank(J_S) == #S then(
+
+          gensHash#deg = {};
+          continue;
+          );
+        );
+
+      
+
+      monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
+      gensHash#deg = probCompOfKernel(deg, dom, samplePts, monomialBasis);
+
+      if i == 1 and #(gensHash#deg) > 0 then (
+        areThereLinearRelations = true;
+      );
+
+      );
+    );
+  
+  gensHash
+  )
+
+TEST ///
+A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
+R = QQ[x_1..x_(numcols A)];
+S = QQ[t_1..t_(numrows A)];
+F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
+dom = newRing(R, Degrees => A);
+G = componentsOfKernel(2,F);
+G = new HashTable from G;
+G = delete(null, flatten values(G));
+assert(sub(ideal(G),R) == ker F)
+///
+
+
+
+
+
+
+
 
 findSupportIndices = (supp, F) -> (
 
@@ -295,7 +435,7 @@ Description
   Text
     References:
 
-    [1] Cummings, J., & Hollering , B. (2023). Computing Implicitizations of Multi-Graded Polynomial Maps. arXiv preprint arXiv:2311..
+    [1] Cummings, J., & Hollering , B. (2023). Computing Implicitizations of Multi-Graded Polynomial Maps. arXiv preprint arXiv:2311.07678.
 
     [2] Cummings, J., & Hauenstein, J. (2023). Multi-graded Macaulay Dual Spaces. arXiv preprint arXiv:2310.11587.
 
@@ -394,6 +534,7 @@ Key
   componentsOfKernel
   (componentsOfKernel, Number, RingMap)
   [componentsOfKernel, Grading]
+  [componentsOfKernel, UseMatroidSpeedup]
 Headline
   Finds all minimal generators up to a given total degree in the kernel of a ring map 
 Usage
@@ -404,6 +545,8 @@ Inputs
   F:RingMap
   Grading => Matrix
     a matrix whose columns give a homogeneous multigrading on $\ker(F)$
+  UseMatroidSpeedup => Boolean
+    if true, then the jacobian of $F$ is used to detect if it is possible for kernel element to exist in a homogeneous component. If the jacobian does not drop rank, then that component cannot contain kernel generators and is skipped.  
 Outputs
   :MutableHashTable
     A mutable hashtable whose keys correspond to all homogeneous components of $\ker(F)$ and values correspond to generators in $\ker(F)$ with those components
@@ -501,6 +644,29 @@ Headline
 Description
   Text
     The option Grading is a @TO2{Matrix,"matrix"}@ that allows one to specify a specific multigrading in which a polynomial map is homogeneous in.
+--
+--  CannedExample
+--Subnodes
+--Caveat
+--SeeAlso
+///
+
+
+doc ///
+Key
+  UseMatroidSpeedup
+Headline
+  optional argument 
+--Usage
+--Inputs
+--Outputs
+--Consequences
+--  Item
+Description
+  Text
+    The option UseMatroidSpeedup is a boolean that allows one to specify if the matroid given by the jacobian should be used to automatically skip components. This option is true by default.
+    If it is set to false, then every homogeneous component will be checked, even if it is impossible for a polynomial with the necessary support to belong to the kernel.
+    For very small examples, it may be slightly faster to set this to false. 
 --
 --  CannedExample
 --Subnodes
