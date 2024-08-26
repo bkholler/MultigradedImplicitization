@@ -209,11 +209,17 @@ assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
 ///
 
 
-
+protect ReduceFirst
 -----------------------------
 ----- componentsOfKernel ----
 -----------------------------
-componentsOfKernel = method(Options => {Grading => null, UseMatroid => true, UseInterpolation => false, CoefficientRing => ZZ/32003, Verbose => true});
+componentsOfKernel = method(Options => {
+	ReduceFirst      => true,
+	Grading          => null,
+	UseMatroid       => true,
+	UseInterpolation => false,
+	CoefficientRing  => ZZ/32003,
+	Verbose          => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   S := source F;
   R := target F;
@@ -225,6 +231,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   dom := newRing(S, Degrees => A);
   gensHash := new MutableHashTable;
   G := new MutableList;
+  T := S; -- slowly will be replaced with S/G
 
   if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
     print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
@@ -249,8 +256,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
     -- compute monomial bases of all homogeneous components in total degree i
-    -- TODO: compute basis in S/G instead, which eliminates trimIdealInDegree
-    B := first entries basis(i, S);
+    if opts.ReduceFirst then T = T / toList G;
+    -- TODO: should we run forceGB on G?
+    B := first entries basis(i, T);
     -- multidegrees of the basis elements given degrees A
     lats := apply(#B, c -> entries(A * vector first exponents B_c));
     -- splits columns of B into buckets with the same multidegree
@@ -299,12 +307,11 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
         );
       );
 
-      
       -- trim the current monomial basis so we only compute minimal generators
-      monomialBasis := trimBasisInDegree(deg, dom, toList G, basisHash);
+      monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, toList G, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
-      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, monomialBasis) else computeComponent(deg, dom, F, monomialBasis);
+      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(deg, dom, F, monomialBasis);
       -- append new generators to G
       scan(gensHash#deg, g -> G##G = g);
 
