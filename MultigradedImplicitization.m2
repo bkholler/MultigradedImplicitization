@@ -225,7 +225,7 @@ assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
 componentsOfKernel = method(Options => {Grading => null, UseMatroid => true, UseInterpolation => false, CoefficientRing => ZZ/32003, Verbose => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
-  if opts.CoefficientRing.char != 0 then print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+  print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
 
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
   KK := opts.CoefficientRing;
@@ -241,13 +241,8 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   -- compute the jacobian of F and substitute in random parameter values in a large finite field
   if opts.UseMatroid then(
 
-    if KK.char = 0 then (
-      bigFiniteField := ZZ/32003;
-    ) else (
-      bigFiniteField := KK;
-    )
-    J := sub(jacobian matrix F, bigFiniteField) ;
-    J = sub(J, apply(gens target F, t -> t => random(bigFiniteField)));
+    J := jacobian matrix F;
+    J = sub(J, apply(gens target F, t -> t => random(KK)));
   );
   
   -- initialize list of sample points and boolean for tracking if there are linear relations in the kernel

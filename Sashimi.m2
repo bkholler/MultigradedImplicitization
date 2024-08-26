@@ -17,11 +17,9 @@ secantSegre = (d, a, b, c) -> (
 -- An easier alternate example is the case when d = a = b = c = 3 which corresponds to the 3 state general Markov model
 -- Running the code below takes about 3 seconds to compute the degree 4 phylogenetic invariants of this model
 l = 3;
-a = 2;
-b = 2;
-c = 2;
+a = 3;
+b = 3;
+c = 3;
 
 F = secantSegre(l, a, b, c)
 G = time componentsOfKernel(4, F)
-G1 = time componentsOfKernel(4, F, CoefficientRing => ZZ/2)
-G2 = time componentsOfKernel(4, F, CoefficientRing => QQ, UseMatroid => true)
