@@ -230,7 +230,6 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
   KK := opts.CoefficientRing;
   dom := newRing(source F, Degrees => A);
-  basisHash := new MutableHashTable;
   gensHash := new MutableHashTable;
 
   if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
@@ -252,14 +251,16 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do (
 
-
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
     -- compute monomial bases of all homogeneous components in total degree i
-    B := sub(basis(i, source F), dom);
-    lats := unique apply(flatten entries B, m -> degree m);
-    scan(lats, deg -> basisHash#deg = basis(deg, dom));
+    B := basis(i, source F);
+    n := numcols B;
+    lats := apply(n, c -> entries(A * vector first exponents B_(0,c)));
+    basisHash := applyValues(hashTable(join,
+	    apply(n, c -> (lats#c, {c}))), cols -> B_cols);
+
     if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
     
     if opts.Verbose then print(concatenate("number of monomials = ", toString(numcols(B))));
@@ -285,8 +286,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
     -- this loop can be done completely in parallel
     for deg in lats do (
-      
-      S := findSupportIndices(support sub(basisHash#deg, source F), F);
+
+      -- find the indices of support variables of basisHash#deg
+      S := apply(support basisHash#deg, index);
 
       if (numcols(basisHash#deg) == 1) and (i > 1) then(
 
@@ -349,18 +351,6 @@ G = new HashTable from G;
 G = delete(null, flatten values(G));
 assert(sub(ideal(G),R) == ker F)
 ///
-
-
-
------------------------------
------ findSupportIndices ----
------------------------------
-findSupportIndices = (supp, F) -> (
-
-  apply(supp, s -> position(gens source F, x -> x == s)) 
-)
-
-
 
 -----------------------------
 ----- Documentation ---------
