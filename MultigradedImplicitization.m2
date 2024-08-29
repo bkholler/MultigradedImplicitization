@@ -63,7 +63,8 @@ assert(ker(A) == ker(maxGrading(F)));
 ----- trimBasisInDegree ----
 ----------------------------
 trimBasisInDegree = method();
-trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G, basisHash) -> (
+trimBasisInDegree (List, Ring,       HashTable) := Matrix => (deg, dom,    basisHash) -> basisHash#deg
+trimBasisInDegree (List, Ring, List, HashTable) := Matrix => (deg, dom, G, basisHash) -> (
 
   if #G == 0 then (
       return basisHash#deg;
@@ -103,16 +104,13 @@ trimBasisInDegree (List, Ring, List, MutableHashTable) := Matrix => (deg, dom, G
 )
 
 
-trimBasisInDegree (List, Ring, MutableHashTable) := Matrix => (deg, dom, basisHash) -> trimBasisInDegree(deg, dom, {}, basisHash)
-
-
 TEST ///
 A = matrix {{1,1,1,0,0,0,0,0,0}, {0,0,0,1,1,1,0,0,0}, {0,0,0,0,0,0,1,1,1}, {1,0,0,1,0,0,1,0,0}, {0,1,0,0,1,0,0,1,0}};
 R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
+basisHash = new HashTable from apply(gens(dom), i -> degree(i) => i);
 B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
 scan(lats, deg -> basisHash#deg = basis(deg, dom));
@@ -139,7 +137,7 @@ computeComponent (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F, 
 )
 
 
-computeComponent (List, Ring, RingMap, MutableHashTable) := List => opts ->  (deg, dom, F, basisHash) -> (
+computeComponent (List, Ring, RingMap, HashTable) := List => opts ->  (deg, dom, F, basisHash) -> (
 
   monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
 
@@ -184,7 +182,7 @@ interpolateComponent (List, Matrix) := List => opts -> (samplePoints, monomialBa
 )
 
 
-interpolateComponent (List, Ring, List, MutableHashTable) := List => opts ->  (deg, dom, samplePoints, basisHash) -> (
+interpolateComponent (List, Ring, List, HashTable) := List => opts ->  (deg, dom, samplePoints, basisHash) -> (
 
   monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
 
@@ -252,24 +250,23 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   samplePoints := {};
   
   -- assumes homogeneous with normal Z-grading
-  for i in 1..d do (
+  for i in 1..d do elapsedTime (
 
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
     -- compute monomial bases of all homogeneous components in total degree i
     -- TODO: compute basis in S/G instead, which eliminates trimIdealInDegree
-    B := basis(i, S);
-    n := numcols B;
+    B := first entries basis(i, S);
     -- multidegrees of the basis elements given degrees A
-    lats := apply(n, c -> entries(A * vector first exponents B_(0,c)));
+    lats := apply(#B, c -> entries(A * vector first exponents B_c));
     -- splits columns of B into buckets with the same multidegree
-    splitHash := hashTable(join, apply(n, c -> (lats#c, {c})));
-    basisHash := applyValues(splitHash, cols -> B_cols);
+    splitHash := hashTable(join, apply(#B, c -> (lats#c, {c})));
+    basisHash := applyValues(splitHash, cols -> matrix{B_cols});
 
     if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
     
-    if opts.Verbose then print(concatenate("number of monomials = ", toString(numcols(B))));
+    if opts.Verbose then print(concatenate("number of monomials = ", toString(#B)));
     if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#lats)));
     if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
 
@@ -446,8 +443,8 @@ Description
 doc ///
 Key
   trimBasisInDegree
-  (trimBasisInDegree, List, Ring, List, MutableHashTable)
-  (trimBasisInDegree, List, Ring, MutableHashTable)
+  (trimBasisInDegree, List, Ring, List, HashTable)
+  (trimBasisInDegree, List, Ring,       HashTable)
 Headline
   Finds a basis for the homogeneous component of a graded ring but removes basis elements which correspond to previously computed generators. 
 Usage
@@ -460,8 +457,8 @@ Inputs
     a graded ring which is the source of a homogeneous ring map $F$
   G:List
     a list of previously computed generators of $\ker(F)$
-  B:MutableHashTable
-    a mutable hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
+  B:HashTable
+    a hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
 Outputs
   :Matrix
     A monomial basis for the homogeneous component of degree {\tt deg} of {\tt dom} with any monomials which cannot be involved in new generators of $\ker(F)$ removed.  
@@ -478,7 +475,7 @@ Description
     S = QQ[t_1..t_(numrows A)];
     F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
-    basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
+    basisHash = new HashTable from apply(gens(dom), i -> degree(i) => i);
     B = basis(2, source F) | basis(3, source F);
     lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
     scan(lats, deg -> basisHash#deg = basis(deg, dom));
@@ -540,7 +537,7 @@ doc ///
 Key
   computeComponent
   (computeComponent, List, Ring, RingMap, Matrix)
-  (computeComponent, List, Ring, RingMap, MutableHashTable)
+  (computeComponent, List, Ring, RingMap, HashTable)
   (computeComponent, List, Ring, RingMap)
 Headline
   Finds all minimal generators of a given multidegree in the kernel of a ring map 
@@ -557,8 +554,8 @@ Inputs
     a map whose kernel is homogeneous in the grading of {\tt dom}
   M:Matrix
     a monomial basis for the homogeneous component of {\tt deg} with degree {\tt deg}
-  B:MutableHashTable
-    a mutable hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
+  B:HashTable
+    a hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
   PreviousGens => List
     a list of generators of the kernel which have lower total degree
 Outputs
@@ -587,7 +584,7 @@ doc ///
 Key
   interpolateComponent
   (interpolateComponent, List, Matrix)
-  (interpolateComponent, List, Ring, List, MutableHashTable)
+  (interpolateComponent, List, Ring, List, HashTable)
   (interpolateComponent, List, Ring, RingMap)
 Headline
   Finds all minimal generators of a given multidegree in the kernel of a ring map by sampling points in the corresponding variety and then interpolating. 
@@ -606,8 +603,8 @@ Inputs
     a monomial basis for the homogeneous component of {\tt deg} with degree {\tt deg}
   P:List
     a list of options which correspond to points from $V(\ker(F))$ which are used to interpolate the monomials in {\tt M}
-  B:MutableHashTable
-    a mutable hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
+  B:HashTable
+    a hashtable which contains all bases of homogeneous components which correspond to lower total degrees than {\tt deg}
   PreviousGens => List
     a list of generators of the kernel which have lower total degree
 Outputs
