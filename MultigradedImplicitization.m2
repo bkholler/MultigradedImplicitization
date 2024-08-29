@@ -224,14 +224,16 @@ assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
 -----------------------------
 componentsOfKernel = method(Options => {Grading => null, UseMatroid => true, UseInterpolation => false, CoefficientRing => ZZ/32003, Verbose => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
+  S := source F;
+  R := target F;
 
-  if opts.CoefficientRing.char != 0 then print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+  print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
 
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
   KK := opts.CoefficientRing;
-  dom := newRing(source F, Degrees => A);
-  basisHash := new MutableHashTable;
+  dom := newRing(S, Degrees => A);
   gensHash := new MutableHashTable;
+  G := new MutableList;
 
   if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
     print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
@@ -241,13 +243,8 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   -- compute the jacobian of F and substitute in random parameter values in a large finite field
   if opts.UseMatroid then(
 
-    if KK.char = 0 then (
-      bigFiniteField := ZZ/32003;
-    ) else (
-      bigFiniteField := KK;
-    )
-    J := sub(jacobian matrix F, bigFiniteField) ;
-    J = sub(J, apply(gens target F, t -> t => random(bigFiniteField)));
+    J := jacobian matrix F;
+    J = sub(J, apply(gens R, t -> t => random(KK)));
   );
   
   -- initialize list of sample points and boolean for tracking if there are linear relations in the kernel
@@ -257,22 +254,23 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do (
 
-
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
     -- compute monomial bases of all homogeneous components in total degree i
-    B := sub(basis(i, source F), dom);
-    lats := unique apply(flatten entries B, m -> degree m);
-    scan(lats, deg -> basisHash#deg = basis(deg, dom));
+    -- TODO: compute basis in S/G instead, which eliminates trimIdealInDegree
+    B := basis(i, S);
+    n := numcols B;
+    -- multidegrees of the basis elements given degrees A
+    lats := apply(n, c -> entries(A * vector first exponents B_(0,c)));
+    -- splits columns of B into buckets with the same multidegree
+    splitHash := hashTable(join, apply(n, c -> (lats#c, {c})));
+    basisHash := applyValues(splitHash, cols -> B_cols);
+
     if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
     
     if opts.Verbose then print(concatenate("number of monomials = ", toString(numcols(B))));
     if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#lats)));
-    
-    -- make list of current generators
-    G := flatten(values(gensHash));
-
     if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
 
     -- sample additional points from the variety if necessary
@@ -280,9 +278,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
       newPoints := for l from 0 to (maxBasisSize - #samplePoints - 1) list(
 
-        paramVals := apply(gens target F, t -> t => random(KK));
+        paramVals := apply(gens R, t -> t => random(KK));
         
-        apply(gens source F, x -> sub(x, dom) => sub(F(x), paramVals))
+        apply(gens S, x -> sub(x, dom) => sub(F(x), paramVals))
       );
 
       samplePoints = samplePoints | newPoints;
@@ -290,8 +288,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
     -- this loop can be done completely in parallel
     for deg in lats do (
-      
-      S := findSupportIndices(support sub(basisHash#deg, source F), F);
+
+      -- find the indices of support variables of basisHash#deg
+      supp := apply(support basisHash#deg, index);
 
       if (numcols(basisHash#deg) == 1) and (i > 1) then(
 
@@ -301,7 +300,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
       if opts.UseMatroid then(
 
-        if rank(J_S) == #S then(
+        if rank(J_supp) == #supp then(
 
           gensHash#deg = {};
           continue;
@@ -310,10 +309,12 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
       
       -- trim the current monomial basis so we only compute minimal generators
-      monomialBasis := trimBasisInDegree(deg, dom, G, basisHash);
+      monomialBasis := trimBasisInDegree(deg, dom, toList G, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
       gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, monomialBasis) else computeComponent(deg, dom, F, monomialBasis);
+      -- append new generators to G
+      scan(gensHash#deg, g -> G##G = g);
 
       -- check if there are linear relations. if so then one can reduce the number of variables
       if i == 1 and #(gensHash#deg) > 0 then (
@@ -354,18 +355,6 @@ G = new HashTable from G;
 G = delete(null, flatten values(G));
 assert(sub(ideal(G),R) == ker F)
 ///
-
-
-
------------------------------
------ findSupportIndices ----
------------------------------
-findSupportIndices = (supp, F) -> (
-
-  apply(supp, s -> position(gens source F, x -> x == s)) 
-)
-
-
 
 -----------------------------
 ----- Documentation ---------
