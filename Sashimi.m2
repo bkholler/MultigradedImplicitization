@@ -1,4 +1,3 @@
-restart
 needsPackage "MultigradedImplicitization"
 
 -- This is the parameterization of the d-th secant power of the Segre embedding of P^(a-1) x P^(b-1) x P^(c-1)

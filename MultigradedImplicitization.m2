@@ -294,6 +294,8 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
         continue;
       );
 
+      if (numcols(basisHash#deg) == 0) then error "basis has no monomials";
+
       if opts.UseMatroid then(
 
         if rank(J_S) == #S then(
