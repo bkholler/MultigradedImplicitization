@@ -27,6 +27,7 @@ export {
   "interpolateComponent",
   "componentsOfKernel",
   -- Options
+  "ReduceFirst",
   "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing", "Verbose"
 }
 
@@ -209,7 +210,6 @@ assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
 ///
 
 
-protect ReduceFirst
 -----------------------------
 ----- componentsOfKernel ----
 -----------------------------
@@ -260,7 +260,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     -- TODO: should we run forceGB on G?
     B := first entries basis(i, T);
     -- multidegrees of the basis elements given degrees A
-    lats := apply(#B, c -> entries(A * vector first exponents B_c));
+    lats := entries(matrix apply(#B, c -> first exponents B_c) * transpose A);
     -- splits columns of B into buckets with the same multidegree
     splitHash := hashTable(join, apply(#B, c -> (lats#c, {c})));
     basisHash := applyValues(splitHash, cols -> matrix{B_cols});
