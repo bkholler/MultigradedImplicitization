@@ -71,7 +71,6 @@ trimBasisInDegree (List, Ring, List, HashTable) := Matrix => (deg, dom, G, basis
       return basisHash#deg;
   );
 
-  print("trimming happening");
   -- otherwise, we shift G in all possible ways to land in R_deg
 
   G = apply(G, g -> sub(g, dom));
@@ -266,6 +265,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
+    skips := 0;
 
     -- compute monomial bases of all homogeneous components in total degree i
     -- if not then add new generators to G so we can reduce as we go
@@ -281,7 +281,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
     
     if opts.Verbose then print(concatenate("number of monomials = ", toString(#B)));
-    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#lats)));
+    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#keys(basisHash))));
     if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
 
     -- sample additional points from the variety if necessary
@@ -298,7 +298,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     );
 
     -- this loop can be done completely in parallel
-    for deg in lats do (
+    for deg in keys(basisHash) do (
 
       -- find the indices of support variables of basisHash#deg
       supp := apply(support basisHash#deg, index);
@@ -306,6 +306,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       if (numcols(basisHash#deg) == 1) and (i > 1) then(
 
         gensHash#deg = {};
+        skips = skips+1;
         continue;
       );
 
@@ -316,6 +317,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
         if rank(J_supp) == #supp then(
 
           gensHash#deg = {};
+          skips = skips + 1;
           continue;
         );
       );
@@ -334,6 +336,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       );
 
     );
+    print(concatenate("skips in degree ", toString(i), " :", toString(skips)));
   );
   
   gensHash
