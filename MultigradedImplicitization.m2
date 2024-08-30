@@ -71,6 +71,7 @@ trimBasisInDegree (List, Ring, List, HashTable) := Matrix => (deg, dom, G, basis
       return basisHash#deg;
   );
 
+  print("trimming happening");
   -- otherwise, we shift G in all possible ways to land in R_deg
 
   G = apply(G, g -> sub(g, dom));
@@ -124,13 +125,14 @@ assert(trimBasisInDegree({2,1,0,1,1},  dom, {x_2*x_4-x_1*x_5, x_3*x_4-x_1*x_6, x
 ----- computeComponent ----
 ----------------------------
 computeComponent = method(Options => {PreviousGens => {}});
-computeComponent (List, Ring, RingMap, Matrix) := List => opts -> (deg, dom, F, monomialBasis) -> (
+computeComponent (RingMap, Matrix) := List => opts -> (F, monomialBasis) -> (
 
   -- collect coefficients into a matrix
-  (mons, coeffs) := coefficients(F(sub(monomialBasis, source F)));
+  (mons, coeffs) := coefficients(F(monomialBasis));
 
   -- find the linear relations among coefficients
-  K := gens ker sub(coeffs, coefficientRing(dom));
+  -- TODO: can we get rid of this sub somehow
+  K := sub(gens ker coeffs, coefficientRing(source F));
 
   newGens := flatten entries (monomialBasis * K);
 
@@ -142,15 +144,15 @@ computeComponent (List, Ring, RingMap, HashTable) := List => opts ->  (deg, dom,
 
   monomialBasis := if basisHash#?deg then basisHash#deg else trimBasisInDegree(deg, dom, opts.PreviousGens, basisHash);
 
-  computeComponent(deg, dom, F, monomialBasis)   
+  computeComponent(F, monomialBasis)   
 )
 
 
 computeComponent (List, Ring, RingMap) := List => opts -> (deg, dom, F) -> (
 
-  monomialBasis := basis(deg, dom);
+  monomialBasis := sub(basis(deg, dom), source F);
 
-  computeComponent(deg, dom, F, monomialBasis)
+  computeComponent(F, monomialBasis)
 )
 
 
@@ -160,7 +162,9 @@ R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-assert(computeComponent({1,1,0,1,1}, dom, F, matrix {{x_1*x_5, x_2*x_4}}) == {x_2*x_4-x_1*x_5});
+B = sub(basis({1,1,0,1,1}, dom), R);
+use R;
+assert(computeComponent(F, B) == {x_2*x_4-x_1*x_5});
 ///
 
 
@@ -231,13 +235,14 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   S := source F;
   R := target F;
 
-  print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+  if opts.UseInterpolation then print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
 
   A := if opts.Grading === null then maxGrading(F) else opts.Grading;
   KK := opts.CoefficientRing;
   dom := newRing(S, Degrees => A);
   gensHash := new MutableHashTable;
   G := new MutableList;
+  newG := new MutableList;
   T := S; -- slowly will be replaced with S/G
 
   if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
@@ -263,7 +268,8 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
 
     -- compute monomial bases of all homogeneous components in total degree i
-    if opts.ReduceFirst then T = T / toList G;
+    -- if not then add new generators to G so we can reduce as we go
+    if opts.ReduceFirst then T = T / toList G else scan(newG, g -> G##G = g);
     -- TODO: should we run forceGB on G?
     B := first entries basis(i, T);
     -- multidegrees of the basis elements given degrees A
@@ -318,9 +324,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, toList G, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
-      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(deg, dom, F, monomialBasis);
+      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(F, monomialBasis);
       -- append new generators to G
-      scan(gensHash#deg, g -> G##G = g);
+      scan(gensHash#deg, g -> newG##newG = g);
 
       -- check if there are linear relations. if so then one can reduce the number of variables
       if i == 1 and #(gensHash#deg) > 0 then (
@@ -543,13 +549,13 @@ Caveat
 doc ///
 Key
   computeComponent
-  (computeComponent, List, Ring, RingMap, Matrix)
+  (computeComponent, RingMap, Matrix)
   (computeComponent, List, Ring, RingMap, HashTable)
   (computeComponent, List, Ring, RingMap)
 Headline
   Finds all minimal generators of a given multidegree in the kernel of a ring map 
 Usage
-  computeComponent(deg, dom, F, M)
+  computeComponent(F, M)
   computeComponent(deg, dom, F, B)
   computeComponent(deg, dom, F)
 Inputs
