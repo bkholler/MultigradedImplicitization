@@ -38,9 +38,16 @@ export {
 ---------------------
 maxGrading = method(Options => {ReturnTargetGrading => false});
 maxGrading RingMap := Matrix => opts -> F -> (
-    degs := transpose linealitySpace gfanHomogeneitySpace graphIdeal F;
-    if opts.ReturnTargetGrading then degs else degs_(toList(0 .. numgens source F - 1))
-    )
+
+  dom := source F;
+  codom := target F;
+  elimRing := dom ** codom;
+  X := vars dom;
+  n := numgens dom;
+  elimIdeal := ideal(sub(X, elimRing) - sub(F(X), elimRing));
+  
+  if opts.ReturnTargetGrading then (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))) else (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
+)
 
 
 TEST ///
