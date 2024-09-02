@@ -14,6 +14,14 @@ newPackage(
   DebuggingMode => true,
   PackageImports => {"gfanInterface"}
 )
+-- WISHLIST:
+-- 1. Parallelize
+-- 2. Kernels of module morphisms
+-- 3. Support torsion gradings (i.e. finest grading group has torsion)
+-- 4. Support multigradings (i.e. kernel in a multidegree)
+--    e.g. kernel(f, Degree => {1,1})
+-- 5. Support rational maps
+
 
 --------------------
 --Exports
