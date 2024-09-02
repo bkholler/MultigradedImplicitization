@@ -1,5 +1,3 @@
-restart
-
 -- This loads our new package which contains our implementation of Algorithm 1
 needsPackage "MultigradedImplicitization"
 
@@ -14,18 +12,18 @@ needsPackage "PhylogeneticTrees"
 sunletParam = (n, M) -> (
 
 	-- This makes 
-	indR := leafColorings(n,M);
+	indS := leafColorings(n,M);
 	GH := new MutableHashTable from apply(group(M), toList(0..#group(M)-1), (i, j) -> i => j);
 
 	-- This makes the ring of parameters which is the codomain of phi
 	-- the "a" parameters correspond to the leaves of the network while the "b" parameters correspond to the internal edges
-	indS := flatten for i from 1 to n list apply(group(M), j -> {i, GH#j});
+	indR := flatten for i from 1 to n list apply(group(M), j -> {i, GH#j});
 	a := symbol a;
 	b := symbol b;
-	S := QQ[apply(indS, k -> a_k) | apply(indS, k -> b_k)];
+	R := QQ[apply(indR, k -> a_k) | apply(indR, k -> b_k)];
 	
 
-	images := for g in indR list(
+	images := for g in indS list(
 
 		aProd := product(apply(n, i -> a_{i+1, GH#(g_i)}));
 		bProd1 := product(for j from 0 to #g - 2 list b_{j+1, GH#(sum(g_(toList(0..j))))});
@@ -41,9 +39,11 @@ sunletParam = (n, M) -> (
 n = 4;
 d = 3;
 M = K3Pmodel;
-R = qRing(n, M);
+S = qRing(n, M);
 images = sunletParam(n, M);
-phi = map(ring images_0, R, images);
+phi = map(ring images_0, S, images);
 
-G = time componentsOfKernel(d, phi)
-
+end
+restart
+load "K3P_Networks.m2"
+G = time componentsOfKernel(3, phi, ReduceFirst => false)
