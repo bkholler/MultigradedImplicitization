@@ -14,14 +14,6 @@ newPackage(
   DebuggingMode => true,
   PackageImports => {"gfanInterface"}
 )
--- WISHLIST:
--- 1. Parallelize
--- 2. Kernels of module morphisms
--- 3. Support torsion gradings (i.e. finest grading group has torsion)
--- 4. Support multigradings (i.e. kernel in a multidegree)
---    e.g. kernel(f, Degree => {1,1})
--- 5. Support rational maps
-
 
 --------------------
 --Exports
@@ -46,9 +38,16 @@ export {
 ---------------------
 maxGrading = method(Options => {ReturnTargetGrading => false});
 maxGrading RingMap := Matrix => opts -> F -> (
-    degs := entries linealitySpace gfanHomogeneitySpace graphIdeal F;
-    transpose matrix if opts.ReturnTargetGrading then degs else take(degs, - numgens source F)
-    )
+
+  dom := source F;
+  codom := target F;
+  elimRing := dom ** codom;
+  X := vars dom;
+  n := numgens dom;
+  elimIdeal := ideal(sub(X, elimRing) - sub(F(X), elimRing));
+  
+  if opts.ReturnTargetGrading then (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal))) else (transpose linealitySpace(gfanHomogeneitySpace(elimIdeal)))_(toList(0..n-1))
+)
 
 
 TEST ///
@@ -112,7 +111,7 @@ R = QQ[x_1..x_(numcols A)];
 S = QQ[t_1..t_(numrows A)];
 F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
 dom = newRing(R, Degrees => A);
-basisHash = new HashTable from apply(gens(dom), i -> degree(i) => i);
+basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
 B = basis(2, source F) | basis(3, source F);
 lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
 scan(lats, deg -> basisHash#deg = basis(deg, dom));
@@ -241,6 +240,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   KK := opts.CoefficientRing;
   dom := newRing(S, Degrees => A);
   gensHash := new MutableHashTable;
+  basisHash := new MutableHashTable;
   G := new MutableList;
   newG := new MutableList;
   T := S; -- slowly will be replaced with S/G
@@ -276,13 +276,15 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     -- multidegrees of the basis elements given degrees A
     lats := entries(matrix apply(#B, c -> first exponents B_c) * transpose A);
     -- splits columns of B into buckets with the same multidegree
+    -- this could probably be done better but works for now
     splitHash := hashTable(join, apply(#B, c -> (lats#c, {c})));
-    basisHash := applyValues(splitHash, cols -> matrix{B_cols});
+    newBasisHash := applyValues(splitHash, cols -> matrix{B_cols});
+    basisHash = merge(basisHash, newBasisHash, (i, j) -> j);
 
     if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
     
     if opts.Verbose then print(concatenate("number of monomials = ", toString(#B)));
-    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#keys(basisHash))));
+    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#keys(newBasisHash))));
     if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
 
     -- sample additional points from the variety if necessary
@@ -299,7 +301,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     );
 
     -- this loop can be done completely in parallel
-    for deg in keys(basisHash) do (
+    for deg in keys(newBasisHash) do (
 
       -- find the indices of support variables of basisHash#deg
       supp := apply(support basisHash#deg, index);
@@ -492,7 +494,7 @@ Description
     S = QQ[t_1..t_(numrows A)];
     F = map(S, R, apply(numcols(A), i -> S_(flatten entries A_i)));
     dom = newRing(R, Degrees => A);
-    basisHash = new HashTable from apply(gens(dom), i -> degree(i) => i);
+    basisHash = new MutableHashTable from apply(gens(dom), i -> degree(i) => i);
     B = basis(2, source F) | basis(3, source F);
     lats = unique apply(flatten entries B, i -> degree(sub(i, dom)));
     scan(lats, deg -> basisHash#deg = basis(deg, dom));
