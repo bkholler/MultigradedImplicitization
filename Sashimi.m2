@@ -22,3 +22,5 @@ restart
 needs "Sashimi.m2"
 
 G = time componentsOfKernel(4, F);
+
+maxGrading F
