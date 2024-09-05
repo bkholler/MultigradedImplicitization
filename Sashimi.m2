@@ -25,4 +25,5 @@ G = elapsedTime componentsOfKernel(3, F, ParallelizeByDegree => true);
 G = elapsedTime componentsOfKernel(3, F);
 
 G = elapsedTime componentsOfKernel(4, F); -- 2.28s -> 1s
+G = elapsedTime componentsOfKernel(4, F, ParallelizeByDegree => true);
 G = elapsedTime componentsOfKernel(4, F, ReduceFirst => false); -- 2.28s -> 1s

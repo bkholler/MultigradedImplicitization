@@ -22,7 +22,6 @@ newPackage(
 --    e.g. kernel(f, Degree => {1,1})
 -- 5. Support rational maps
 
-
 --------------------
 --Exports
 --------------------
@@ -39,6 +38,7 @@ export {
   "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing", "Verbose"
 }
 
+importFrom_Core "nonnull"
 
 -- TODO: computing the exponents matrix in the engine could save up to 40s on Sashimi
 -- given B = first entries basis(deg, S), returns a matrix whose
@@ -270,7 +270,6 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do elapsedTime (
-    newgensHash := new MutableHashTable;
 
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
@@ -310,16 +309,13 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     );
 
     -- this loop can be done completely in parallel
-    for deg in keys(newBasisHash) do (
-
+    findGensInDegree := deg -> (
       -- find the indices of support variables of basisHash#deg
       supp := apply(support basisHash#deg, index);
 
       if (numcols(basisHash#deg) == 1) and (i > 1) then(
-
-        newgensHash#deg = {};
         skips = skips+1;
-        continue;
+        return;
       );
 
       if (numcols(basisHash#deg) == 0) then error "basis has no monomials";
@@ -327,10 +323,8 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       if opts.UseMatroid then(
 
         if rank(J_supp) == #supp then(
-
-          newgensHash#deg = {};
           skips = skips + 1;
-          continue;
+          return;
         );
       );
 
@@ -338,14 +332,18 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, toList G, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
-      computation := () -> if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(F, monomialBasis);
-      newgensHash#deg = if opts.ParallelizeByDegree then (async computation)() else computation();
+      if opts.UseInterpolation
+      then interpolateComponent(samplePoints, basisHash#deg)
+      else computeComponent(F, monomialBasis)
     );
+
+  newgensHash := hashTable apply(keys newBasisHash, deg ->
+      deg => if opts.ParallelizeByDegree then (async findGensInDegree) deg else findGensInDegree deg);
 
   -- wait for threads to finish and append new generators to G
   newgensHash = await newgensHash;
   gensHash = merge(gensHash, newgensHash, join);
-  scan(flatten values newgensHash, g -> G##G = g);
+  scan(nonnull flatten values newgensHash, g -> G##G = g);
   -- check if there are linear relations. if so then one can reduce the number of variables
   if i == 1 and #G > 0 then areThereLinearRelations = true;
 
