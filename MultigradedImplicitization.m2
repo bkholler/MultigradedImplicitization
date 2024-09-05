@@ -40,6 +40,10 @@ export {
 }
 
 
+-- TODO: computing the exponents matrix in the engine could save up to 40s on Sashimi
+-- given B = first entries basis(deg, S), returns a matrix whose
+-- columns are exponent vectors of monomials of degree deg in S
+exponentMatrix = B -> matrix apply(#B, c -> first exponents B_c)
 
 ---------------------
 ---- maxGrading -----
@@ -275,10 +279,11 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     -- TODO: should we run forceGB on G?
     B := first entries basis(i, T);
     -- multidegrees of the basis elements given degrees A
-    lats := entries(matrix apply(#B, c -> first exponents B_c) * transpose A);
+    lats := entries(exponentMatrix B * transpose A); -- ~50% of time in Sashimi
     -- splits columns of B into buckets with the same multidegree
     -- this could probably be done better but works for now
     splitHash := hashTable(join, apply(#B, c -> (lats#c, {c})));
+    -- TODO: submatrix(B, , cols) is slower than matrix{(first entries B)_cols}
     newBasisHash := applyValues(splitHash, cols -> matrix{B_cols});
     basisHash = merge(basisHash, newBasisHash, (i, j) -> j);
 
