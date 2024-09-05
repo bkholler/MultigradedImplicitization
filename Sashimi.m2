@@ -1,4 +1,4 @@
-needsPackage "MultigradedImplicitization"
+debug needsPackage "MultigradedImplicitization"
 
 -- This is the parameterization of the d-th secant power of the Segre embedding of P^(a-1) x P^(b-1) x P^(c-1)
 -- The case when d = a = b = c = 4 corresponds to the Salmon problem
@@ -21,6 +21,8 @@ end--
 restart
 needs "Sashimi.m2"
 
-G = time componentsOfKernel(4, F);
+G = elapsedTime componentsOfKernel(3, F, ParallelizeByDegree => true);
+G = elapsedTime componentsOfKernel(3, F);
 
-maxGrading F
+G = elapsedTime componentsOfKernel(4, F); -- 2.28s -> 1s
+G = elapsedTime componentsOfKernel(4, F, ReduceFirst => false); -- 2.28s -> 1s

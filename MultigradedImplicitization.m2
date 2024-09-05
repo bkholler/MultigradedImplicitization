@@ -224,6 +224,7 @@ dom = newRing(R, Degrees => A);
 assert(interpolateComponent({1,1,0,1,1}, dom, F) == {x_2*x_4-x_1*x_5});
 ///
 
+needs "parallel.m2"
 
 -----------------------------
 ----- componentsOfKernel ----
@@ -233,6 +234,7 @@ componentsOfKernel = method(Options => {
 	Grading          => null,
 	UseMatroid       => true,
 	UseInterpolation => false,
+	ParallelizeByDegree => false,
 	CoefficientRing  => ZZ/32003,
 	Verbose          => true});
 componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
@@ -268,6 +270,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do elapsedTime (
+    newgensHash := new MutableHashTable;
 
     if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
@@ -314,7 +317,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
       if (numcols(basisHash#deg) == 1) and (i > 1) then(
 
-        gensHash#deg = {};
+        newgensHash#deg = {};
         skips = skips+1;
         continue;
       );
@@ -325,7 +328,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
 
         if rank(J_supp) == #supp then(
 
-          gensHash#deg = {};
+          newgensHash#deg = {};
           skips = skips + 1;
           continue;
         );
@@ -335,17 +338,18 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, toList G, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
-      gensHash#deg = if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(F, monomialBasis);
-      -- append new generators to G
-      scan(gensHash#deg, g -> newG##newG = g);
-
-      -- check if there are linear relations. if so then one can reduce the number of variables
-      if i == 1 and #(gensHash#deg) > 0 then (
-        areThereLinearRelations = true;
-      );
-
+      computation := () -> if opts.UseInterpolation then interpolateComponent(samplePoints, basisHash#deg) else computeComponent(F, monomialBasis);
+      newgensHash#deg = if opts.ParallelizeByDegree then (async computation)() else computation();
     );
-    print(concatenate("skips in degree ", toString(i), " :", toString(skips)));
+
+  -- wait for threads to finish and append new generators to G
+  newgensHash = await newgensHash;
+  gensHash = merge(gensHash, newgensHash, join);
+  scan(flatten values newgensHash, g -> G##G = g);
+  -- check if there are linear relations. if so then one can reduce the number of variables
+  if i == 1 and #G > 0 then areThereLinearRelations = true;
+
+  print(concatenate("skips in degree ", toString(i), " :", toString(skips)));
   );
   
   gensHash
