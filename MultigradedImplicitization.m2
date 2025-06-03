@@ -36,9 +36,10 @@ export {
   "computeComponent",
   "interpolateComponent",
   "componentsOfKernel",
+  "rationalComponentsOfKernel",
   -- Options
   "ReduceFirst",
-  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing", "FindCommonDenominator"
 }
 
 importFrom_Core "nonnull"
@@ -402,6 +403,154 @@ G = delete(null, flatten values(G));
 assert(sub(ideal(G),R) == ker F)
 ///
 
+
+ratDiff = (x, q) -> (
+
+    f := numerator(q);
+    g := denominator(q);
+
+    (g*diff(x, f) - f*diff(x, g))/g^2
+)
+
+ratJac = (R, phi) -> (
+
+    ims := flatten entries matrix phi;
+    fR := target phi;
+
+    matrix for t in gens(R) list for f in ims list ratDiff(t, f)
+)
+
+
+rationalComponentsOfKernel = method(Options => {
+	ReduceFirst           => true,
+	UseMatroid            => true,
+	UseInterpolation      => false,
+	ParallelizeByDegree   => false,
+	CoefficientRing       => ZZ/32003,
+  FindCommonDenominator => true,
+	Verbose               => true});
+rationalComponentsOfKernel (Number, Matrix, RingMap) := MutableHashTable => opts -> (d, A, F) -> (
+  S := source F;
+  R := target F;
+  
+  -- for rational maps
+  if not instance(R, FractionField) then error "target ring must be a fraction field";
+  baseR := last(R.baseRings);
+
+
+  if opts.UseInterpolation then print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
+
+  KK := opts.CoefficientRing;
+  dom := newRing(S, Degrees => A);
+  gensHash := new MutableHashTable;
+  basisHash := new MutableHashTable;
+  G := new MutableList;
+  newG := new MutableList;
+  T := S; -- slowly will be replaced with S/G
+
+  if (transpose(matrix {toList(numColumns(A) : 1/1)}) % image(transpose sub(A,QQ))) != 0 then (
+    print("ERROR: The multigrading does not refine total degree. Try homogenizing or a user-defined multigrading");
+    return;
+  );
+
+  -- compute the jacobian of F and substitute in random parameter values in a large finite field
+  if opts.UseMatroid then(
+
+    J := ratJac(baseR, F);
+    J = sub(J, apply(gens R, t -> t => random(KK)));
+  );
+  
+  -- initialize list of sample points and boolean for tracking if there are linear relations in the kernel
+  areThereLinearRelations := false;
+  samplePoints := {};
+  
+  -- assumes homogeneous with normal Z-grading
+  for i in 1..d do elapsedTime (
+
+    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
+    skips := 0;
+
+    -- compute monomial bases of all homogeneous components in total degree i
+    -- if not then add new generators to G so we can reduce as we go
+    if opts.ReduceFirst then T = T / toList G else scan(newG, g -> G##G = g);
+    -- TODO: should we run forceGB on G?
+    B := first entries sub(basis(i, T), S);
+    -- multidegrees of the basis elements given degrees A
+    -- TODO: Can we do these calculations in engine? this seems to be our main bottle neck for toric ideals
+    lats := entries(exponentMatrix B * transpose A); -- ~50% of time in Sashimi
+    -- splits columns of B into buckets with the same multidegree
+    -- this could probably be done better but works for now
+    splitHash := hashTable(join, apply(#B, c -> (lats#c, {c})));
+    -- TODO: submatrix(B, , cols) is slower than matrix{(first entries B)_cols}
+    newBasisHash := applyValues(splitHash, cols -> matrix{B_cols});
+    basisHash = merge(basisHash, newBasisHash, (i, j) -> j);
+
+    if opts.UseInterpolation then maxBasisSize := max(apply(values(basisHash), k -> numcols(k)));
+    
+    if opts.Verbose then print(concatenate("number of monomials = ", toString(#B)));
+    if opts.Verbose then print(concatenate("number of distinct multidegrees = ", toString(#keys(newBasisHash))));
+    if opts.Verbose and opts.UseInterpolation then print(concatenate("sampling ", toString(maxBasisSize), " points from the variety"));
+
+    -- sample additional points from the variety if necessary
+    if opts.UseInterpolation and #samplePoints <  maxBasisSize then(
+
+      newPoints := for l from 0 to (maxBasisSize - #samplePoints - 1) list(
+
+        paramVals := apply(gens R, t -> t => random(KK));
+        
+        apply(gens S, x -> sub(x, dom) => sub(F(x), paramVals))
+      );
+
+      samplePoints = samplePoints | newPoints;
+    );
+
+    -- this loop can be done completely in parallel
+    findGensInDegree := deg -> (
+      -- find the indices of support variables of basisHash#deg
+      supp := apply(support basisHash#deg, index);
+
+      if (numcols(basisHash#deg) == 1) and (i > 1) then(
+        skips = skips+1;
+        return;
+      );
+
+      if (numcols(basisHash#deg) == 0) then error "basis has no monomials";
+
+      if opts.UseMatroid then(
+
+        if rank(J_supp) == #supp then(
+          skips = skips + 1;
+          return;
+        );
+      );
+
+      -- trim the current monomial basis so we only compute minimal generators
+      monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, gensHash, basisHash);
+
+      -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
+      if opts.UseInterpolation
+      then interpolateComponent(samplePoints, basisHash#deg)
+      else computeComponent(F, monomialBasis)
+    );
+
+  newgensHash := hashTable apply(keys newBasisHash, deg ->
+      deg => if opts.ParallelizeByDegree then (async findGensInDegree) deg else findGensInDegree deg);
+
+  -- wait for threads to finish and append new generators to G
+  -- this can surely be done better
+  newgensHash = await newgensHash;
+  newgensHash = hashTable for deg in keys(newgensHash) list if newgensHash#deg === null then continue else deg => newgensHash#deg;
+  gensHash = merge(gensHash, newgensHash, join);
+  scan(nonnull flatten values newgensHash, g -> G##G = g);
+  -- check if there are linear relations. if so then one can reduce the number of variables
+  if i == 1 and #G > 0 then areThereLinearRelations = true;
+
+  print(concatenate("skips in degree ", toString(i), " :", toString(skips)));
+  );
+  
+  gensHash
+)
 -----------------------------
 ----- Documentation ---------
 -----------------------------
