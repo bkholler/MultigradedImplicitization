@@ -421,6 +421,15 @@ ratJac = (R, phi) -> (
 )
 
 
+rationalToPolynomialMap = (R, phi) -> (
+
+    images := flatten entries matrix phi;
+    commonDenom := lcm(images/denominator);
+
+    map(R, source phi, apply(images, i -> sub(commonDenom*i, R)))
+)
+
+
 rationalComponentsOfKernel = method(Options => {
 	ReduceFirst           => true,
 	UseMatroid            => true,
@@ -437,6 +446,19 @@ rationalComponentsOfKernel (Number, Matrix, RingMap) := MutableHashTable => opts
   if not instance(R, FractionField) then error "target ring must be a fraction field";
   baseR := last(R.baseRings);
 
+  -- maybe need to saturate the output by the common denominator
+  if opts.FindCommonDenominator then(
+
+    psi := rationalToPolynomialMap(baseR, F);
+    return componentsOfKernel(d, psi, ReduceFirst => opts.ReduceFirst,
+    Grading => A,
+    UseMatroid => opts.UseMatroid,
+    UseInterpolation => opts.UseInterpolation,
+    ParallelizeByDegree => opts.ParallelizeByDegree,
+    CoefficientRing => opts.CoefficientRing,
+    Verbose => opts.Verbose
+    );
+  );
 
   if opts.UseInterpolation then print("warning: computation begun over finite field. resulting polynomials may not lie in the ideal");
 
