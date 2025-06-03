@@ -12,7 +12,7 @@ newPackage(
   },
   Headline => "A package for levaraging multigradings to solve implicitization problems",
   DebuggingMode => true,
-  PackageImports => {"gfanInterface"}
+  PackageImports => {"gfanInterface", "NAGtypes"}
 )
 -- WISHLIST:
 -- 1. Parallelize
@@ -35,7 +35,7 @@ export {
   "componentsOfKernel",
   -- Options
   "ReduceFirst",
-  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing", "Verbose"
+  "Grading", "PreviousGens", "ReturnTargetGrading", "UseMatroid", "UseInterpolation", "CoefficientRing"
 }
 
 importFrom_Core "nonnull"
@@ -70,27 +70,41 @@ assert(ker(A) == ker(maxGrading(F)));
 ----------------------------
 trimBasisInDegree = method();
 trimBasisInDegree (List, Ring,       HashTable) := Matrix => (deg, dom,    basisHash) -> basisHash#deg
-trimBasisInDegree (List, Ring, List, HashTable) := Matrix => (deg, dom, G, basisHash) -> (
+trimBasisInDegree (List, Ring, HashTable, HashTable) := Matrix => (deg, dom, gensHash, basisHash) -> (
 
-  if #G == 0 then (
+  if #(flatten values gensHash) == 0 then (
       return basisHash#deg;
   );
 
   -- otherwise, we shift G in all possible ways to land in R_deg
+  --G = apply(G, g -> sub(g, dom));
 
-  G = apply(G, g -> sub(g, dom));
+  -- L := apply(G, g -> (
+  --         checkDegree := deg - degree(g);
+  --         if basisHash#?checkDegree then (
+  --             g*basisHash#checkDegree
+  --         ) else (
+  --             -- this else condition is only hit when basis(checkDegree,dom) = |0|
+  --             g*basis(checkDegree, dom)
+  --         )
+  --     )
+  -- );
 
-  L := apply(G, g -> (
-          checkDegree := deg - degree(g);
-          if basisHash#?checkDegree then (
+  L := flatten for curdeg in keys(gensHash) list(
+
+    checkDegree := deg - curdeg;
+
+    for g in gensHash#curdeg list(
+      
+      if basisHash#?checkDegree then (
               g*basisHash#checkDegree
           ) else (
               -- this else condition is only hit when basis(checkDegree,dom) = |0|
-              g*basis(checkDegree, dom)
+              g*matrix{{0}}
           )
-      )
+    )
   );
-  
+
   -- stick em all in a matrix
   mat := L#0;
   scan(1..#L-1, i -> mat = mat | L#i);
@@ -279,8 +293,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
     -- if not then add new generators to G so we can reduce as we go
     if opts.ReduceFirst then T = T / toList G else scan(newG, g -> G##G = g);
     -- TODO: should we run forceGB on G?
-    B := first entries basis(i, T);
+    B := first entries sub(basis(i, T), S);
     -- multidegrees of the basis elements given degrees A
+    -- TODO: Can we do these calculations in engine? this seems to be our main bottle neck for toric ideals
     lats := entries(exponentMatrix B * transpose A); -- ~50% of time in Sashimi
     -- splits columns of B into buckets with the same multidegree
     -- this could probably be done better but works for now
@@ -329,7 +344,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       );
 
       -- trim the current monomial basis so we only compute minimal generators
-      monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, toList G, basisHash);
+      monomialBasis := if opts.ReduceFirst then basisHash#deg else trimBasisInDegree(deg, dom, gensHash, basisHash);
 
       -- compute minimal generators using either interpolation or symbolic evaluation of the monomials under F
       if opts.UseInterpolation
@@ -341,7 +356,9 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
       deg => if opts.ParallelizeByDegree then (async findGensInDegree) deg else findGensInDegree deg);
 
   -- wait for threads to finish and append new generators to G
+  -- this can surely be done better
   newgensHash = await newgensHash;
+  newgensHash = hashTable for deg in keys(newgensHash) list if newgensHash#deg === null then continue else deg => newgensHash#deg;
   gensHash = merge(gensHash, newgensHash, join);
   scan(nonnull flatten values newgensHash, g -> G##G = g);
   -- check if there are linear relations. if so then one can reduce the number of variables
