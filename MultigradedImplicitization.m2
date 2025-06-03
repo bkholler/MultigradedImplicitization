@@ -8,7 +8,10 @@ newPackage(
     HomePage => "https://sites.google.com/view/josephcummingsuky/home"},
     {Name => "Benjamin Hollering",
     Email => "benhollering@gmail.com",
-    HomePage => "https://sites.google.com/view/benhollering"}
+    HomePage => "https://sites.google.com/view/benhollering"},
+    {Name => "Mahrud Sayrafi",
+    Email => "mahrud@umn.edu",
+    HomePage => "https://math.umn.edu/~mahrud"}
   },
   Headline => "A package for levaraging multigradings to solve implicitization problems",
   DebuggingMode => true,
