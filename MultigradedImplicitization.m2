@@ -271,7 +271,7 @@ componentsOfKernel (Number, RingMap) := MutableHashTable => opts -> (d, F) -> (
   -- assumes homogeneous with normal Z-grading
   for i in 1..d do elapsedTime (
 
-    if i == 2 and areThereLinearRelations then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
+    if i == 2 and areThereLinearRelations and opts.Verbose then print("WARNING: There are linear relations. You may want to reduce the number of variables to speed up the computation.");
     if opts.Verbose then print(concatenate("computing total degree: ", toString(i)));
     skips := 0;
 
